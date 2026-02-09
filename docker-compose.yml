@@ -1,0 +1,49 @@
+
+services:
+  #my sql
+  
+  db:
+    image: mysql:8.0
+    container_name: electrotrack-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: electrotrack_db
+      MYSQL_USER: equipo
+      MYSQL_PASSWORD: equipo_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  #Node  js
+  api:
+    build: ./backend
+    image: electrotrack/api:latest
+    container_name: electrotrack-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=db
+      - DB_USER=equipo
+      - DB_PASS=equipo_password
+      - DB_NAME=electrotrack_db
+      - DB_PORT=3306
+    depends_on:
+      db:
+        condition: service_healthy
+    command: npm run dev
+
+
+volumes:
+  db_data:
