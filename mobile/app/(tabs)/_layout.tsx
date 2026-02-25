@@ -7,8 +7,7 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 
-// You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
-function TabBarIcon(props: {
+ function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
   color: string;
 }) {
@@ -21,16 +20,31 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
+        tabBarStyle: { display: 'none' }, // Ocultar completamente el navbar superior
       }}>
   
+      {/* Login - Oculto del navbar */}
       <Tabs.Screen
         name="Login"
         options={{
-          title: 'ElectroTrack',
-          tabBarButton: () => null,
-          tabBarStyle: { display: 'none' },
+          title: 'Login',
+        }}
+      />
+
+      {/* Principal - Con su propio navbar */}
+      <Tabs.Screen
+        name="principal"
+        options={{
+          title: 'Principal',
+        }}
+      />
+
+      {/* Placeholder para index.tsx (vacío) */}
+      <Tabs.Screen
+        name="index"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

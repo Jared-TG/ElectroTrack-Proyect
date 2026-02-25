@@ -20,6 +20,8 @@ export default function LoginScreen() {
     const handleLogin = () => {
         // Lógica de inicio de sesión
         console.log('Login:', { email, password });
+        // Navegar a la pantalla principal
+        router.replace('/(tabs)/principal');
     };
 
     const handleForgotPassword = () => {
