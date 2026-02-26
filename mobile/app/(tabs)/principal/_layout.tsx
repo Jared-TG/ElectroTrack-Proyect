@@ -37,9 +37,9 @@ export default function MainLayout() {
           backgroundColor: '#000000',
         },
       }}>
-      
+
       <Tabs.Screen
-        name="index"
+        name="inicio"
         options={{
           title: 'Inicio',
           tabBarIcon: ({ color }) => (
@@ -47,7 +47,7 @@ export default function MainLayout() {
           ),
         }}
       />
-      
+
       <Tabs.Screen
         name="historial"
         options={{
@@ -57,7 +57,7 @@ export default function MainLayout() {
           ),
         }}
       />
-      
+
       <Tabs.Screen
         name="dispositivos"
         options={{
@@ -67,7 +67,7 @@ export default function MainLayout() {
           ),
         }}
       />
-      
+
       <Tabs.Screen
         name="configuracion"
         options={{
