@@ -5,39 +5,38 @@ import {
     StyleSheet,
     ScrollView,
     TouchableOpacity,
+    ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-
-interface MonthData {
-    id: string;
-    month: string;
-    year: number;
-    kwh: number;
-    cost: number;
-}
-
-const monthlyData: MonthData[] = [
-    { id: '1', month: 'Enero', year: 2026, kwh: 450, cost: 675.00 },
-    { id: '2', month: 'Diciembre', year: 2025, kwh: 402, cost: 603.00 },
-    { id: '3', month: 'Noviembre', year: 2025, kwh: 423, cost: 634.50 },
-    { id: '4', month: 'Octubre', year: 2025, kwh: 389, cost: 583.50 },
-    { id: '5', month: 'Septiembre', year: 2025, kwh: 410, cost: 615.00 },
-    { id: '6', month: 'Agosto', year: 2025, kwh: 395, cost: 592.50 },
-    { id: '7', month: 'Julio', year: 2025, kwh: 378, cost: 567.00 },
-    { id: '8', month: 'Junio', year: 2025, kwh: 362, cost: 543.00 },
-    { id: '9', month: 'Mayo', year: 2025, kwh: 319, cost: 478.50 },
-    { id: '10', month: 'Abril', year: 2025, kwh: 300, cost: 450.00 },
-];
+import { useHistorial } from '@/app/hooks/useHistorial';
 
 const MAX_KWH = 500;
 
 export default function HistorialScreen() {
     const router = useRouter();
+    const { months, totalKwh, totalCost, avgKwh, loading, error } = useHistorial();
 
-    const totalKwh = monthlyData.reduce((sum, m) => sum + m.kwh, 0);
-    const totalCost = monthlyData.reduce((sum, m) => sum + m.cost, 0);
-    const avgKwh = Math.round(totalKwh / monthlyData.length);
+    if (loading) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color="#FFD700" />
+                <Text style={{ color: '#AAA', marginTop: 12 }}>Cargando historial...</Text>
+            </View>
+        );
+    }
+
+    if (error) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }]}>
+                <Ionicons name="alert-circle-outline" size={48} color="#FF4444" />
+                <Text style={{ color: '#FF4444', marginTop: 12, textAlign: 'center' }}>{error}</Text>
+                <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16 }}>
+                    <Text style={{ color: '#FFD700' }}>Volver</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -80,17 +79,17 @@ export default function HistorialScreen() {
                     <Text style={styles.monthsTitle}>Meses</Text>
                 </View>
 
-                {/* Month Cards */}
-                {monthlyData.map((item) => (
+                {/* Month Cards — ahora usa datos del hook (API) */}
+                {months.map((item) => (
                     <View key={item.id} style={styles.monthCard}>
                         <View style={styles.monthCardContent}>
                             <View style={styles.monthLeft}>
-                                <Text style={styles.monthName}>{item.month}</Text>
-                                <Text style={styles.monthYear}>{item.year}</Text>
+                                <Text style={styles.monthName}>{item.mes}</Text>
+                                <Text style={styles.monthYear}>{item.anio}</Text>
                             </View>
                             <View style={styles.monthRight}>
                                 <Text style={styles.monthCost}>
-                                    ${item.cost.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                    ${item.costo.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                                 </Text>
                                 <Text style={styles.monthCurrency}>MXN</Text>
                             </View>
