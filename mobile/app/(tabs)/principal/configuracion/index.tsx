@@ -205,7 +205,7 @@ export default function ConfiguracionScreen() {
                 </View>
 
                 {/* Botón Salir */}
-                <TouchableOpacity style={styles.logoutButton}>
+                <TouchableOpacity style={styles.logoutButton} onPress={() => router.replace('/(tabs)/Login')}>
                     <Text style={styles.logoutText}>Salir</Text>
                 </TouchableOpacity>
 
