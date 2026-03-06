@@ -9,20 +9,47 @@ import {
   Platform,
   ScrollView,
   Image,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
+import { API_URL } from '@/app/config/api.config';
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleRegister = () => {
-    // Lógica de registro
-    console.log('Register:', { email, username, password });
-    // Regresar al Login
-    router.back();
+  const handleRegister = async () => {
+    if (!email || !username || !password) {
+      Alert.alert('Error', 'Todos los campos son requeridos');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          nombre_usuario: username,
+          contrasena: password,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        Alert.alert('Error', data.error || 'Error al registrar');
+        return;
+      }
+
+      Alert.alert('Éxito', 'Usuario registrado correctamente', [
+        { text: 'OK', onPress: () => router.back() },
+      ]);
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo conectar al servidor');
+    }
   };
 
   const handleTermsPress = () => {

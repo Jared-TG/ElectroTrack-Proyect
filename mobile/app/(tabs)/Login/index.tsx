@@ -9,19 +9,40 @@ import {
     Platform,
     ScrollView,
     Image,
+    Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
+import { API_URL } from '@/app/config/api.config';
 
 export default function LoginScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
 
-    const handleLogin = () => {
-        // Lógica de inicio de sesión
-        console.log('Login:', { email, password });
-        // Navegar a la pantalla principal
-        router.replace('/(tabs)/principal/inicio');
+    const handleLogin = async () => {
+        if (!email || !password) {
+            Alert.alert('Error', 'Por favor ingresa email y contraseña');
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_URL}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, contrasena: password }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                Alert.alert('Error', data.error || 'Credenciales incorrectas');
+                return;
+            }
+
+            router.replace('/(tabs)/principal/inicio');
+        } catch (error) {
+            Alert.alert('Error', 'No se pudo conectar al servidor');
+        }
     };
 
     const handleForgotPassword = () => {
