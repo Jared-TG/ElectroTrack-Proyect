@@ -23,6 +23,7 @@ fastify.register(require('@fastify/cors'), {
 
 // Registrar rutas
 fastify.register(require('./routes/historial'));
+fastify.register(require('./routes/auth'));
 
 // Rutas básicas
 fastify.get('/', async (request, reply) => {

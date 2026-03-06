@@ -31,7 +31,7 @@ export default function MainLayout() {
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '500',
+          fontFamily: 'Inter_500Medium',
         },
         tabBarItemStyle: {
           backgroundColor: '#000000',

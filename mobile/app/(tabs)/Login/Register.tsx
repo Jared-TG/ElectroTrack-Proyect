@@ -9,20 +9,47 @@ import {
   Platform,
   ScrollView,
   Image,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
+import { API_URL } from '@/app/config/api.config';
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleRegister = () => {
-    // Lógica de registro
-    console.log('Register:', { email, username, password });
-    // Regresar al Login
-    router.back();
+  const handleRegister = async () => {
+    if (!email || !username || !password) {
+      Alert.alert('Error', 'Todos los campos son requeridos');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          nombre_usuario: username,
+          contrasena: password,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        Alert.alert('Error', data.error || 'Error al registrar');
+        return;
+      }
+
+      Alert.alert('Éxito', 'Usuario registrado correctamente', [
+        { text: 'OK', onPress: () => router.back() },
+      ]);
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo conectar al servidor');
+    }
   };
 
   const handleTermsPress = () => {
@@ -144,13 +171,13 @@ const styles = StyleSheet.create({
   },
   titleWhite: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontFamily: 'Inter_700Bold',
     color: '#FFF',
     letterSpacing: 2,
   },
   titleYellow: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontFamily: 'Inter_700Bold',
     color: '#FFD700',
     letterSpacing: 2,
   },
@@ -159,7 +186,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     textAlign: 'center',
     marginBottom: 30,
-    fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
   },
   formContainer: {
     width: '100%',
@@ -171,6 +198,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FFF',
     marginBottom: 8,
+    fontFamily: 'Inter_400Regular',
   },
   input: {
     backgroundColor: 'transparent',
@@ -181,6 +209,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: '#FFF',
+    fontFamily: 'Inter_400Regular',
   },
   termsContainer: {
     marginBottom: 30,
@@ -191,6 +220,7 @@ const styles = StyleSheet.create({
     color: '#888',
     textAlign: 'center',
     lineHeight: 18,
+    fontFamily: 'Inter_400Regular',
   },
   termsLink: {
     color: '#4A9EFF',
@@ -208,6 +238,6 @@ const styles = StyleSheet.create({
   registerButtonText: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
 });

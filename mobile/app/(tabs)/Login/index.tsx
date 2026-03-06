@@ -9,19 +9,40 @@ import {
     Platform,
     ScrollView,
     Image,
+    Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
+import { API_URL } from '@/app/config/api.config';
 
 export default function LoginScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
 
-    const handleLogin = () => {
-        // Lógica de inicio de sesión
-        console.log('Login:', { email, password });
-        // Navegar a la pantalla principal
-        router.replace('/(tabs)/principal');
+    const handleLogin = async () => {
+        if (!email || !password) {
+            Alert.alert('Error', 'Por favor ingresa email y contraseña');
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_URL}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, contrasena: password }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                Alert.alert('Error', data.error || 'Credenciales incorrectas');
+                return;
+            }
+
+            router.replace('/(tabs)/principal/inicio');
+        } catch (error) {
+            Alert.alert('Error', 'No se pudo conectar al servidor');
+        }
     };
 
     const handleForgotPassword = () => {
@@ -137,13 +158,13 @@ const styles = StyleSheet.create({
     },
     titleWhite: {
         fontSize: 24,
-        fontWeight: 'bold',
+        fontFamily: 'Inter_700Bold',
         color: '#FFF',
         letterSpacing: 2,
     },
     titleYellow: {
         fontSize: 24,
-        fontWeight: 'bold',
+        fontFamily: 'Inter_700Bold',
         color: '#FFD700',
         letterSpacing: 2,
     },
@@ -152,7 +173,7 @@ const styles = StyleSheet.create({
         color: '#FFF',
         textAlign: 'center',
         marginBottom: 40,
-        fontWeight: '500',
+        fontFamily: 'Inter_500Medium',
     },
     formContainer: {
         width: '100%',
@@ -164,6 +185,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#FFF',
         marginBottom: 8,
+        fontFamily: 'Inter_400Regular',
     },
     input: {
         backgroundColor: 'transparent',
@@ -174,6 +196,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         fontSize: 16,
         color: '#FFF',
+        fontFamily: 'Inter_400Regular',
     },
     forgotPasswordContainer: {
         alignItems: 'flex-end',
@@ -182,6 +205,7 @@ const styles = StyleSheet.create({
     forgotPasswordText: {
         color: '#888',
         fontSize: 14,
+        fontFamily: 'Inter_400Regular',
     },
     loginButton: {
         backgroundColor: 'transparent',
@@ -195,7 +219,7 @@ const styles = StyleSheet.create({
     loginButtonText: {
         color: '#FFF',
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: 'Inter_600SemiBold',
     },
     registerContainer: {
         flexDirection: 'row',
@@ -204,10 +228,11 @@ const styles = StyleSheet.create({
     registerText: {
         color: '#888',
         fontSize: 14,
+        fontFamily: 'Inter_400Regular',
     },
     registerLink: {
         color: '#FFF',
         fontSize: 14,
-        fontWeight: 'bold',
+        fontFamily: 'Inter_700Bold',
     },
 });
