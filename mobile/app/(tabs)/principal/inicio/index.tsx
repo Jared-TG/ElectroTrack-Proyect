@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import CircularMeter from '@/components/CircularMeter';
+import { useAuth } from '@/app/context/AuthContext';
 
 interface Device {
     id: string;
@@ -19,6 +20,7 @@ interface Device {
 }
 
 export default function HomeScreen() {
+    const { user } = useAuth();
     const [devices, setDevices] = useState<Device[]>([
         { id: '1', name: 'Ventilador', icon: 'fan', watts: 60, isOn: true },
         { id: '2', name: 'Dispensador de Agua', icon: 'water', watts: 550, isOn: true },
@@ -62,7 +64,9 @@ export default function HomeScreen() {
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={styles.welcomeText}>Bienvenido a Electrotrack</Text>
+                    <Text style={styles.welcomeText}>
+                        Bienvenido, {user?.nombre_usuario || 'Usuario'}
+                    </Text>
                     <TouchableOpacity>
                         <Ionicons name="notifications-outline" size={28} color="#FFF" />
                     </TouchableOpacity>
