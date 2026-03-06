@@ -49,7 +49,7 @@ export default function RegisterScreen() {
           />
         </View>
 
-       
+
 
         {/* Título Registro */}
         <Text style={styles.registroTitle}>Registro</Text>
