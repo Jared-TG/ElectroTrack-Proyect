@@ -9,6 +9,7 @@ export default function LoginLayout() {
     >
       <Stack.Screen name="index" />
       <Stack.Screen name="Register" />
+      <Stack.Screen name="TermsConditions" />
     </Stack>
   );
 }
