@@ -158,14 +158,14 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 18,
-        fontWeight: '700',
+        fontFamily: 'Inter_700Bold',
         color: '#FFF',
         letterSpacing: 1.5,
     },
     // Title
     pageTitle: {
         fontSize: 26,
-        fontWeight: '700',
+        fontFamily: 'Inter_700Bold',
         fontStyle: 'italic',
         color: '#FFD700',
         marginBottom: 8,
@@ -174,12 +174,13 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#888',
         marginBottom: 24,
+        fontFamily: 'Inter_400Regular',
     },
 
     // Section
     sectionTitle: {
         fontSize: 17,
-        fontWeight: '700',
+        fontFamily: 'Inter_700Bold',
         color: '#FFD700',
         marginBottom: 10,
         marginTop: 20,
@@ -188,6 +189,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#CCC',
         lineHeight: 22,
+        fontFamily: 'Inter_400Regular',
     },
     // Bullet List
     bulletList: {
@@ -199,6 +201,7 @@ const styles = StyleSheet.create({
         color: '#CCC',
         lineHeight: 24,
         paddingLeft: 4,
+        fontFamily: 'Inter_400Regular',
     },
     // Divider
     divider: {
@@ -232,6 +235,7 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#AAA',
         lineHeight: 20,
+        fontFamily: 'Inter_400Regular',
     },
     // Accept Button
     acceptButton: {
@@ -245,7 +249,7 @@ const styles = StyleSheet.create({
     },
     acceptButtonText: {
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: 'Inter_600SemiBold',
         color: '#FFD700',
     },
     acceptButtonTextDisabled: {

@@ -236,14 +236,14 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 18,
-        fontWeight: '700',
+        fontFamily: 'Inter_700Bold',
         color: '#FFF',
         letterSpacing: 1.5,
     },
     // Section Title
     sectionTitle: {
         fontSize: 22,
-        fontWeight: '700',
+        fontFamily: 'Inter_700Bold',
         color: '#FFD700',
         paddingHorizontal: 20,
         marginBottom: 20,
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     },
     cardTitle: {
         fontSize: 16,
-        fontWeight: '700',
+        fontFamily: 'Inter_700Bold',
         color: '#FFF',
     },
     // Setting Row (with toggle)
@@ -283,12 +283,13 @@ const styles = StyleSheet.create({
     settingName: {
         fontSize: 15,
         color: '#FFF',
-        fontWeight: '500',
+        fontFamily: 'Inter_500Medium',
     },
     settingDesc: {
         fontSize: 12,
         color: '#888',
         marginTop: 2,
+        fontFamily: 'Inter_400Regular',
     },
     // Toggle
     toggleContainer: {
@@ -298,12 +299,12 @@ const styles = StyleSheet.create({
     },
     toggleLabel: {
         fontSize: 12,
-        fontWeight: '600',
+        fontFamily: 'Inter_600SemiBold',
         color: '#FFD700',
     },
     toggleLabelOff: {
         fontSize: 12,
-        fontWeight: '600',
+        fontFamily: 'Inter_600SemiBold',
         color: '#888',
     },
     // Navigation Row (with chevron)
@@ -330,7 +331,7 @@ const styles = StyleSheet.create({
     },
     logoutText: {
         fontSize: 16,
-        fontWeight: '700',
+        fontFamily: 'Inter_700Bold',
         color: '#FFF',
     },
 });

@@ -144,13 +144,13 @@ const styles = StyleSheet.create({
   },
   titleWhite: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontFamily: 'Inter_700Bold',
     color: '#FFF',
     letterSpacing: 2,
   },
   titleYellow: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontFamily: 'Inter_700Bold',
     color: '#FFD700',
     letterSpacing: 2,
   },
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     textAlign: 'center',
     marginBottom: 30,
-    fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
   },
   formContainer: {
     width: '100%',
@@ -171,6 +171,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FFF',
     marginBottom: 8,
+    fontFamily: 'Inter_400Regular',
   },
   input: {
     backgroundColor: 'transparent',
@@ -181,6 +182,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: '#FFF',
+    fontFamily: 'Inter_400Regular',
   },
   termsContainer: {
     marginBottom: 30,
@@ -191,6 +193,7 @@ const styles = StyleSheet.create({
     color: '#888',
     textAlign: 'center',
     lineHeight: 18,
+    fontFamily: 'Inter_400Regular',
   },
   termsLink: {
     color: '#4A9EFF',
@@ -208,6 +211,6 @@ const styles = StyleSheet.create({
   registerButtonText: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
 });

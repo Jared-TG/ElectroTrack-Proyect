@@ -13,7 +13,7 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 export default function CircularMeter({ currentWatts, maxWatts, estimatedCost }: CircularMeterProps) {
   const percentage = Math.min((currentWatts / maxWatts) * 100, 100);
   const animatedValue = useRef(new Animated.Value(0)).current;
-  
+
   const size = 220;
   const strokeWidth = 20;
   const center = size / 2;
@@ -62,7 +62,7 @@ export default function CircularMeter({ currentWatts, maxWatts, estimatedCost }:
             />
           </G>
         </Svg>
-        
+
         {/* Texto central */}
         <View style={styles.centerContent}>
           <Text style={styles.wattsText}>{currentWatts}</Text>
@@ -100,18 +100,20 @@ const styles = StyleSheet.create({
   },
   wattsText: {
     fontSize: 48,
-    fontWeight: 'bold',
+    fontFamily: 'Inter_700Bold',
     color: '#FFF',
   },
   wattsLabel: {
     fontSize: 20,
     color: '#FFF',
     marginTop: -8,
+    fontFamily: 'Inter_400Regular',
   },
   usageLabel: {
     fontSize: 14,
     color: '#AAA',
     marginTop: 4,
+    fontFamily: 'Inter_400Regular',
   },
   costContainer: {
     marginTop: 20,
@@ -127,10 +129,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#AAA',
     marginBottom: 4,
+    fontFamily: 'Inter_400Regular',
   },
   costValue: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontFamily: 'Inter_700Bold',
     color: '#FFD700',
   },
 });

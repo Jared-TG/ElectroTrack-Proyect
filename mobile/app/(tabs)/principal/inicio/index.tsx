@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     welcomeText: {
         fontSize: 18,
         color: '#FFF',
-        fontWeight: '500',
+        fontFamily: 'Inter_500Medium',
     },
     devicesSection: {
         paddingHorizontal: 20,
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         color: '#FFF',
-        fontWeight: '600',
+        fontFamily: 'Inter_600SemiBold',
         marginBottom: 15,
     },
     deviceCard: {
@@ -167,11 +167,12 @@ const styles = StyleSheet.create({
     deviceName: {
         fontSize: 16,
         color: '#FFF',
-        fontWeight: '500',
+        fontFamily: 'Inter_500Medium',
         marginBottom: 4,
     },
     deviceWatts: {
         fontSize: 13,
         color: '#888',
+        fontFamily: 'Inter_400Regular',
     },
 });

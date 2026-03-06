@@ -132,14 +132,14 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 18,
-        fontWeight: '700',
+        fontFamily: 'Inter_700Bold',
         color: '#FFF',
         letterSpacing: 1.5,
     },
     // Section Title
     sectionTitle: {
         fontSize: 22,
-        fontWeight: '700',
+        fontFamily: 'Inter_700Bold',
         color: '#FFD700',
         paddingHorizontal: 20,
         marginBottom: 20,
@@ -168,10 +168,11 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#AAA',
         marginBottom: 8,
+        fontFamily: 'Inter_400Regular',
     },
     summaryValue: {
         fontSize: 22,
-        fontWeight: '700',
+        fontFamily: 'Inter_700Bold',
         color: '#FFF',
     },
     // Average Card
@@ -188,10 +189,11 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#AAA',
         marginBottom: 8,
+        fontFamily: 'Inter_400Regular',
     },
     averageValue: {
         fontSize: 26,
-        fontWeight: '700',
+        fontFamily: 'Inter_700Bold',
         color: '#FFF',
     },
     // Months Section
@@ -204,7 +206,7 @@ const styles = StyleSheet.create({
     },
     monthsTitle: {
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: 'Inter_600SemiBold',
         color: '#FFF',
     },
     // Month Card
@@ -226,31 +228,34 @@ const styles = StyleSheet.create({
     monthLeft: {},
     monthName: {
         fontSize: 18,
-        fontWeight: '700',
+        fontFamily: 'Inter_700Bold',
         color: '#FFF',
     },
     monthYear: {
         fontSize: 15,
         color: '#AAA',
         marginTop: 2,
+        fontFamily: 'Inter_400Regular',
     },
     monthRight: {
         alignItems: 'flex-end',
     },
     monthCost: {
         fontSize: 20,
-        fontWeight: '700',
+        fontFamily: 'Inter_700Bold',
         color: '#FFD700',
     },
     monthCurrency: {
         fontSize: 13,
         color: '#888',
         marginTop: 2,
+        fontFamily: 'Inter_400Regular',
     },
     monthKwh: {
         fontSize: 13,
         color: '#AAA',
         marginBottom: 8,
+        fontFamily: 'Inter_400Regular',
     },
     // Progress Bar
     progressBarBg: {
