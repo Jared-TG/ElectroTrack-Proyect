@@ -26,8 +26,7 @@ export default function RegisterScreen() {
   };
 
   const handleTermsPress = () => {
-    // Navegar a términos y condiciones
-    console.log('Terms and conditions');
+    router.push('/(tabs)/Login/TermsConditions' as any);
   };
 
   return (
