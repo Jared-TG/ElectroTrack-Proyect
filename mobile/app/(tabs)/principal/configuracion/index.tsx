@@ -9,9 +9,11 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useAuth } from '@/app/context/AuthContext';
 
 export default function ConfiguracionScreen() {
     const router = useRouter();
+    const { logout } = useAuth();
 
     // Toggle states
     const [notificaciones, setNotificaciones] = useState(true);
@@ -205,7 +207,7 @@ export default function ConfiguracionScreen() {
                 </View>
 
                 {/* Botón Salir */}
-                <TouchableOpacity style={styles.logoutButton} onPress={() => router.replace('/(tabs)/Login')}>
+                <TouchableOpacity style={styles.logoutButton} onPress={() => { logout(); router.replace('/(tabs)/Login'); }}>
                     <Text style={styles.logoutText}>Salir</Text>
                 </TouchableOpacity>
 

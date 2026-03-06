@@ -14,10 +14,12 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { API_URL } from '@/app/config/api.config';
+import { useAuth } from '@/app/context/AuthContext';
 
 export default function LoginScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const { login } = useAuth();
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -40,6 +42,7 @@ export default function LoginScreen() {
             }
 
             router.replace('/(tabs)/principal/inicio');
+            login(data.user);
         } catch (error) {
             Alert.alert('Error', 'No se pudo conectar al servidor');
         }
