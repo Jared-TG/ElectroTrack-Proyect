@@ -1,0 +1,7 @@
+CREATE TABLE consumo_mensual (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  mes VARCHAR(20) NOT NULL,
+  anio INT NOT NULL,
+  kwh DECIMAL(10,2) NOT NULL,
+  costo DECIMAL(10,2) NOT NULL
+);
