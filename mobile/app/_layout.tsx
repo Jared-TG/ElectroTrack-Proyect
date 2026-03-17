@@ -14,6 +14,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider } from '@/app/context/AuthContext';
+import { initDatabase } from '@/app/services/database';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -45,7 +46,11 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded) {
-      SplashScreen.hideAsync();
+      // Inicializar SQLite al cargar la app
+      initDatabase()
+        .then(() => console.log('[App] SQLite listo'))
+        .catch((err) => console.error('[App] Error al inicializar SQLite:', err))
+        .finally(() => SplashScreen.hideAsync());
     }
   }, [loaded]);
 

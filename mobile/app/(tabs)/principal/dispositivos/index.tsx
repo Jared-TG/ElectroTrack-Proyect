@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
     View,
     Text,
@@ -11,7 +11,9 @@ import {
     Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useDispositivos } from '@/app/hooks/useDispositivos';
+import { addLocalDevice } from '@/app/services/localDeviceService';
 
 // Íconos disponibles para seleccionar
 const DEVICE_ICONS = [
@@ -52,12 +54,118 @@ export default function DispositivosScreen() {
     const [deviceName, setDeviceName] = useState('');
     const [saving, setSaving] = useState(false);
 
+    // QR Scanner state
+    const [scannerVisible, setScannerVisible] = useState(false);
+    const [scanned, setScanned] = useState(false);
+    const [permission, requestPermission] = useCameraPermissions();
+
+    // Manual ID state
+    const [manualIdVisible, setManualIdVisible] = useState(false);
+    const [manualId, setManualId] = useState('');
+
     const handleOpenModal = () => {
         setSelectedIcon('tv');
         setDeviceName('');
         setModalVisible(true);
     };
 
+    // ===== QR SCANNER =====
+    const handleOpenScanner = async () => {
+        if (!permission?.granted) {
+            const result = await requestPermission();
+            if (!result.granted) {
+                Alert.alert(
+                    'Permiso requerido',
+                    'Se necesita acceso a la cámara para escanear códigos QR'
+                );
+                return;
+            }
+        }
+        setScanned(false);
+        setScannerVisible(true);
+    };
+
+    const handleBarCodeScanned = ({ data }: { data: string }) => {
+        if (scanned) return;
+        setScanned(true);
+        setScannerVisible(false);
+
+        // Intentar parsear el QR como JSON
+        try {
+            const deviceData = JSON.parse(data);
+            // QR con formato JSON: { id, nombre, tipo, modelo, serial, ... }
+            setDeviceName(deviceData.nombre || deviceData.name || '');
+            if (deviceData.icono) setSelectedIcon(deviceData.icono);
+
+            // Guardar en SQLite local
+            addLocalDevice({
+                qr_code: deviceData.id || deviceData.qr_code || data,
+                nombre: deviceData.nombre || deviceData.name || 'Dispositivo',
+                icono: deviceData.icono || null,
+                tipo: deviceData.tipo || deviceData.type || 'general',
+                modelo: deviceData.modelo || deviceData.model || null,
+                serial: deviceData.serial || null,
+                estado: 'en_espera',
+                watts: deviceData.watts || 0,
+            });
+
+            Alert.alert(
+                '✅ Dispositivo detectado',
+                `Nombre: ${deviceData.nombre || deviceData.name || 'Sin nombre'}\nTipo: ${deviceData.tipo || deviceData.type || 'general'}\nID: ${deviceData.id || deviceData.qr_code || 'N/A'}`,
+                [{ text: 'OK' }]
+            );
+        } catch {
+            // QR con texto plano (solo el ID)
+            setDeviceName('');
+
+            addLocalDevice({
+                qr_code: data,
+                nombre: 'Dispositivo',
+                icono: null,
+                tipo: 'general',
+                modelo: null,
+                serial: null,
+                estado: 'en_espera',
+                watts: 0,
+            });
+
+            Alert.alert(
+                '✅ Código QR escaneado',
+                `ID del dispositivo: ${data}`,
+                [{ text: 'OK' }]
+            );
+        }
+    };
+
+    // ===== MANUAL ID =====
+    const handleOpenManualId = () => {
+        setManualId('');
+        setManualIdVisible(true);
+    };
+
+    const handleManualIdSubmit = async () => {
+        if (!manualId.trim()) {
+            Alert.alert('Error', 'Ingresa el ID del dispositivo');
+            return;
+        }
+
+        await addLocalDevice({
+            qr_code: manualId.trim(),
+            nombre: deviceName.trim() || 'Dispositivo',
+            icono: selectedIcon !== 'tv' ? selectedIcon : null,
+            tipo: 'general',
+            modelo: null,
+            serial: null,
+            estado: 'en_espera',
+            watts: 0,
+        });
+
+        Alert.alert('✅ Dispositivo agregado', `ID: ${manualId.trim()}`);
+        setManualIdVisible(false);
+        setManualId('');
+    };
+
+    // ===== VINCULAR (crear en servidor) =====
     const handleVincular = async () => {
         if (!deviceName.trim()) {
             Alert.alert('Error', 'Ingresa el nombre del dispositivo');
@@ -68,7 +176,11 @@ export default function DispositivosScreen() {
         try {
             await addDispositivo({
                 nombre: deviceName.trim(),
-                icono: selectedIcon,
+                icono: selectedIcon !== 'tv' ? selectedIcon : null,
+                qr_code: '',
+                tipo: 'general',
+                modelo: null,
+                serial: null,
                 estado: 'en_espera',
                 online: true,
                 watts: 0,
@@ -127,7 +239,7 @@ export default function DispositivosScreen() {
                         <View key={device.id} style={styles.deviceCard}>
                             <View style={styles.deviceLeft}>
                                 <View style={styles.iconContainer}>
-                                    <DeviceIcon iconKey={device.icono} size={28} color="#FFD700" />
+                                    <DeviceIcon iconKey={device.icono || 'default'} size={28} color="#FFD700" />
                                 </View>
                                 <View style={styles.deviceInfo}>
                                     <Text style={styles.deviceName}>{device.nombre}</Text>
@@ -202,11 +314,11 @@ export default function DispositivosScreen() {
 
                         {/* Opciones QR / Manual */}
                         <View style={styles.optionsRow}>
-                            <TouchableOpacity style={styles.optionCard}>
+                            <TouchableOpacity style={styles.optionCard} onPress={handleOpenScanner}>
                                 <MaterialCommunityIcons name="qrcode-scan" size={36} color="#FFD700" />
                                 <Text style={styles.optionText}>Escanear Código QR</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.optionCard}>
+                            <TouchableOpacity style={styles.optionCard} onPress={handleOpenManualId}>
                                 <Ionicons name="book-outline" size={36} color="#FFD700" />
                                 <Text style={styles.optionText}>Introducir Id{'\n'}manualmente</Text>
                             </TouchableOpacity>
@@ -225,6 +337,90 @@ export default function DispositivosScreen() {
                             )}
                         </TouchableOpacity>
                     </ScrollView>
+                </View>
+            </Modal>
+
+            {/* ===== Modal Escáner QR ===== */}
+            <Modal
+                visible={scannerVisible}
+                animationType="slide"
+                transparent={false}
+                onRequestClose={() => setScannerVisible(false)}
+            >
+                <View style={styles.scannerContainer}>
+                    {/* Scanner Header */}
+                    <View style={styles.scannerHeader}>
+                        <TouchableOpacity onPress={() => setScannerVisible(false)} style={styles.backButton}>
+                            <Ionicons name="arrow-back" size={24} color="#FFF" />
+                        </TouchableOpacity>
+                        <Text style={styles.scannerTitle}>Escanear QR</Text>
+                        <View style={{ width: 24 }} />
+                    </View>
+
+                    {/* Camera */}
+                    <View style={styles.cameraContainer}>
+                        <CameraView
+                            style={styles.camera}
+                            barcodeScannerSettings={{
+                                barcodeTypes: ['qr'],
+                            }}
+                            onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+                        />
+
+                        {/* Overlay con marco */}
+                        <View style={styles.overlay}>
+                            <View style={styles.scanFrame}>
+                                {/* Esquinas del marco */}
+                                <View style={[styles.corner, styles.cornerTL]} />
+                                <View style={[styles.corner, styles.cornerTR]} />
+                                <View style={[styles.corner, styles.cornerBL]} />
+                                <View style={[styles.corner, styles.cornerBR]} />
+                            </View>
+                            <Text style={styles.scanInstruction}>
+                                Apunta la cámara al código QR del dispositivo
+                            </Text>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* ===== Modal ID Manual ===== */}
+            <Modal
+                visible={manualIdVisible}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setManualIdVisible(false)}
+            >
+                <View style={styles.manualIdOverlay}>
+                    <View style={styles.manualIdCard}>
+                        <Text style={styles.manualIdTitle}>Introducir ID del dispositivo</Text>
+                        <Text style={styles.manualIdSubtitle}>
+                            Ingresa el código que aparece en la etiqueta del dispositivo
+                        </Text>
+                        <TextInput
+                            style={styles.manualIdInput}
+                            placeholder="Ej: ET-2026-001"
+                            placeholderTextColor="#666"
+                            value={manualId}
+                            onChangeText={setManualId}
+                            autoCapitalize="characters"
+                            autoFocus
+                        />
+                        <View style={styles.manualIdButtons}>
+                            <TouchableOpacity
+                                style={styles.manualIdCancel}
+                                onPress={() => setManualIdVisible(false)}
+                            >
+                                <Text style={styles.manualIdCancelText}>Cancelar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.manualIdConfirm}
+                                onPress={handleManualIdSubmit}
+                            >
+                                <Text style={styles.manualIdConfirmText}>Agregar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
                 </View>
             </Modal>
         </View>
@@ -374,7 +570,7 @@ const styles = StyleSheet.create({
         fontFamily: 'Inter_400Regular',
     },
 
-    // ===== MODAL =====
+    // ===== MODAL AGREGAR =====
     modalContainer: {
         flex: 1,
         backgroundColor: '#000',
@@ -392,11 +588,6 @@ const styles = StyleSheet.create({
     },
     backButton: {
         padding: 4,
-    },
-    headerTitleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
     },
     headerTitle: {
         fontSize: 18,
@@ -492,6 +683,151 @@ const styles = StyleSheet.create({
     },
     vincularText: {
         fontSize: 16,
+        fontFamily: 'Inter_700Bold',
+        color: '#000',
+    },
+
+    // ===== SCANNER QR =====
+    scannerContainer: {
+        flex: 1,
+        backgroundColor: '#000',
+    },
+    scannerHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingTop: 50,
+        paddingBottom: 16,
+        backgroundColor: '#000',
+    },
+    scannerTitle: {
+        fontSize: 18,
+        fontFamily: 'Inter_700Bold',
+        color: '#FFF',
+    },
+    cameraContainer: {
+        flex: 1,
+        position: 'relative',
+    },
+    camera: {
+        flex: 1,
+    },
+    overlay: {
+        ...StyleSheet.absoluteFillObject,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    scanFrame: {
+        width: 250,
+        height: 250,
+        position: 'relative',
+    },
+    corner: {
+        position: 'absolute',
+        width: 30,
+        height: 30,
+        borderColor: '#FFD700',
+    },
+    cornerTL: {
+        top: 0,
+        left: 0,
+        borderTopWidth: 3,
+        borderLeftWidth: 3,
+    },
+    cornerTR: {
+        top: 0,
+        right: 0,
+        borderTopWidth: 3,
+        borderRightWidth: 3,
+    },
+    cornerBL: {
+        bottom: 0,
+        left: 0,
+        borderBottomWidth: 3,
+        borderLeftWidth: 3,
+    },
+    cornerBR: {
+        bottom: 0,
+        right: 0,
+        borderBottomWidth: 3,
+        borderRightWidth: 3,
+    },
+    scanInstruction: {
+        color: '#FFF',
+        fontSize: 14,
+        fontFamily: 'Inter_500Medium',
+        textAlign: 'center',
+        marginTop: 24,
+        paddingHorizontal: 40,
+    },
+
+    // ===== MODAL ID MANUAL =====
+    manualIdOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+    },
+    manualIdCard: {
+        width: '100%',
+        backgroundColor: '#1A1A1A',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#333',
+        padding: 24,
+    },
+    manualIdTitle: {
+        fontSize: 18,
+        fontFamily: 'Inter_700Bold',
+        color: '#FFD700',
+        marginBottom: 8,
+    },
+    manualIdSubtitle: {
+        fontSize: 13,
+        fontFamily: 'Inter_400Regular',
+        color: '#888',
+        marginBottom: 20,
+    },
+    manualIdInput: {
+        backgroundColor: '#0D0D0D',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#333',
+        padding: 16,
+        fontSize: 16,
+        color: '#FFF',
+        fontFamily: 'Inter_500Medium',
+        letterSpacing: 1,
+        marginBottom: 20,
+    },
+    manualIdButtons: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    manualIdCancel: {
+        flex: 1,
+        paddingVertical: 14,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#555',
+        alignItems: 'center',
+    },
+    manualIdCancelText: {
+        fontSize: 14,
+        fontFamily: 'Inter_600SemiBold',
+        color: '#888',
+    },
+    manualIdConfirm: {
+        flex: 1,
+        paddingVertical: 14,
+        borderRadius: 12,
+        backgroundColor: '#FFD700',
+        alignItems: 'center',
+    },
+    manualIdConfirmText: {
+        fontSize: 14,
         fontFamily: 'Inter_700Bold',
         color: '#000',
     },
