@@ -123,6 +123,49 @@ module.exports = async function (fastify) {
     return reply.status(200).send(updated[0]);
   });
 
+  // ===== SIMULADOR IoT (datos en tiempo real) =====
+  const deviceStates = {};
+
+  function getDeviceState(id) {
+    if (!deviceStates[id]) {
+      deviceStates[id] = {
+        startTime: Date.now(),
+        kwhAccum: Math.random() * 10 + 20,
+        lastUpdate: Date.now(),
+      };
+    }
+    return deviceStates[id];
+  }
+
+  // GET /dispositivos/:id/realtime — datos simulados de IoT
+  fastify.get('/dispositivos/:id/realtime', async (request, reply) => {
+    const { id } = request.params;
+    const state = getDeviceState(id);
+    const now = Date.now();
+
+    const elapsed = (now - state.startTime) / 1000;
+    const baseWatts = 40;
+    const amplitude = 25;
+    const wave = Math.sin(elapsed * 0.15) * amplitude;
+    const noise = (Math.random() - 0.5) * 6;
+    const watts = Math.max(5, Math.round(baseWatts + wave + noise));
+
+    const voltaje = +(127 + (Math.random() - 0.5) * 2).toFixed(1);
+    const corriente = +(watts / voltaje).toFixed(2);
+
+    const hoursElapsed = (now - state.lastUpdate) / (1000 * 60 * 60);
+    state.kwhAccum += (watts / 1000) * hoursElapsed;
+    state.lastUpdate = now;
+
+    return {
+      timestamp: new Date(now).toISOString(),
+      watts,
+      voltaje,
+      corriente,
+      kwh_total: +state.kwhAccum.toFixed(1),
+    };
+  });
+
   // DELETE /dispositivos/:id — eliminar
   fastify.delete('/dispositivos/:id', async (request, reply) => {
     const { id } = request.params;

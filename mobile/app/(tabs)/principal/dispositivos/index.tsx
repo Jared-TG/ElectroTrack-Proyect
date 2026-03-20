@@ -59,6 +59,9 @@ export default function DispositivosScreen() {
     const [scanned, setScanned] = useState(false);
     const [permission, requestPermission] = useCameraPermissions();
 
+    // ID del dispositivo (obtenido por QR o manual)
+    const [scannedDeviceId, setScannedDeviceId] = useState('');
+
     // Manual ID state
     const [manualIdVisible, setManualIdVisible] = useState(false);
     const [manualId, setManualId] = useState('');
@@ -66,6 +69,7 @@ export default function DispositivosScreen() {
     const handleOpenModal = () => {
         setSelectedIcon('tv');
         setDeviceName('');
+        setScannedDeviceId('');
         setModalVisible(true);
     };
 
@@ -90,51 +94,15 @@ export default function DispositivosScreen() {
         setScanned(true);
         setScannerVisible(false);
 
-        // Intentar parsear el QR como JSON
-        try {
-            const deviceData = JSON.parse(data);
-            // QR con formato JSON: { id, nombre, tipo, modelo, serial, ... }
-            setDeviceName(deviceData.nombre || deviceData.name || '');
-            if (deviceData.icono) setSelectedIcon(deviceData.icono);
+        // El QR contiene solo el ID del dispositivo ElectroTrack
+        const deviceId = data.trim();
+        setScannedDeviceId(deviceId);
 
-            // Guardar en SQLite local
-            addLocalDevice({
-                qr_code: deviceData.id || deviceData.qr_code || data,
-                nombre: deviceData.nombre || deviceData.name || 'Dispositivo',
-                icono: deviceData.icono || null,
-                tipo: deviceData.tipo || deviceData.type || 'general',
-                modelo: deviceData.modelo || deviceData.model || null,
-                serial: deviceData.serial || null,
-                estado: 'en_espera',
-                watts: deviceData.watts || 0,
-            });
-
-            Alert.alert(
-                '✅ Dispositivo detectado',
-                `Nombre: ${deviceData.nombre || deviceData.name || 'Sin nombre'}\nTipo: ${deviceData.tipo || deviceData.type || 'general'}\nID: ${deviceData.id || deviceData.qr_code || 'N/A'}`,
-                [{ text: 'OK' }]
-            );
-        } catch {
-            // QR con texto plano (solo el ID)
-            setDeviceName('');
-
-            addLocalDevice({
-                qr_code: data,
-                nombre: 'Dispositivo',
-                icono: null,
-                tipo: 'general',
-                modelo: null,
-                serial: null,
-                estado: 'en_espera',
-                watts: 0,
-            });
-
-            Alert.alert(
-                '✅ Código QR escaneado',
-                `ID del dispositivo: ${data}`,
-                [{ text: 'OK' }]
-            );
-        }
+        Alert.alert(
+            '✅ Dispositivo detectado',
+            `ID: ${deviceId}\n\nAhora ponle un nombre a tu dispositivo.`,
+            [{ text: 'OK' }]
+        );
     };
 
     // ===== MANUAL ID =====
@@ -143,41 +111,54 @@ export default function DispositivosScreen() {
         setManualIdVisible(true);
     };
 
-    const handleManualIdSubmit = async () => {
+    const handleManualIdSubmit = () => {
         if (!manualId.trim()) {
             Alert.alert('Error', 'Ingresa el ID del dispositivo');
             return;
         }
 
-        await addLocalDevice({
-            qr_code: manualId.trim(),
-            nombre: deviceName.trim() || 'Dispositivo',
-            icono: selectedIcon !== 'tv' ? selectedIcon : null,
-            tipo: 'general',
-            modelo: null,
-            serial: null,
-            estado: 'en_espera',
-            watts: 0,
-        });
-
-        Alert.alert('✅ Dispositivo agregado', `ID: ${manualId.trim()}`);
+        setScannedDeviceId(manualId.trim());
         setManualIdVisible(false);
         setManualId('');
+
+        Alert.alert(
+            '✅ ID registrado',
+            `ID: ${manualId.trim()}\n\nAhora ponle un nombre a tu dispositivo.`,
+            [{ text: 'OK' }]
+        );
     };
 
-    // ===== VINCULAR (crear en servidor) =====
+    // ===== VINCULAR (guardar en SQLite + servidor) =====
     const handleVincular = async () => {
         if (!deviceName.trim()) {
             Alert.alert('Error', 'Ingresa el nombre del dispositivo');
             return;
         }
 
+        if (!scannedDeviceId) {
+            Alert.alert('Error', 'Primero escanea un código QR o introduce el ID manualmente');
+            return;
+        }
+
         setSaving(true);
         try {
+            // Guardar en SQLite local
+            await addLocalDevice({
+                qr_code: scannedDeviceId,
+                nombre: deviceName.trim(),
+                icono: selectedIcon !== 'tv' ? selectedIcon : null,
+                tipo: 'general',
+                modelo: null,
+                serial: null,
+                estado: 'en_espera',
+                watts: 0,
+            });
+
+            // También crear en el servidor
             await addDispositivo({
                 nombre: deviceName.trim(),
                 icono: selectedIcon !== 'tv' ? selectedIcon : null,
-                qr_code: '',
+                qr_code: scannedDeviceId,
                 tipo: 'general',
                 modelo: null,
                 serial: null,
@@ -185,7 +166,9 @@ export default function DispositivosScreen() {
                 online: true,
                 watts: 0,
             });
+
             setModalVisible(false);
+            Alert.alert('✅ Dispositivo vinculado', `${deviceName.trim()} se agregó correctamente`);
         } catch (err: any) {
             Alert.alert('Error', err.message || 'No se pudo vincular el dispositivo');
         } finally {
@@ -323,6 +306,21 @@ export default function DispositivosScreen() {
                                 <Text style={styles.optionText}>Introducir Id{'\n'}manualmente</Text>
                             </TouchableOpacity>
                         </View>
+
+                        {/* ID del dispositivo escaneado */}
+                        {scannedDeviceId ? (
+                            <View style={styles.scannedIdBadge}>
+                                <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                                <Text style={styles.scannedIdText}>ID: {scannedDeviceId}</Text>
+                            </View>
+                        ) : (
+                            <View style={styles.scannedIdBadge}>
+                                <Ionicons name="information-circle-outline" size={20} color="#666" />
+                                <Text style={[styles.scannedIdText, { color: '#666' }]}>
+                                    Escanea un QR o introduce el ID
+                                </Text>
+                            </View>
+                        )}
 
                         {/* Botón Vincular */}
                         <TouchableOpacity
@@ -540,7 +538,7 @@ const styles = StyleSheet.create({
     },
     deviceStatus: {
         fontSize: 13,
-        color: '#FFD700',
+        color: '#B8960A',
         fontFamily: 'Inter_500Medium',
         marginTop: 2,
     },
@@ -673,7 +671,7 @@ const styles = StyleSheet.create({
     // Botón Vincular
     vincularButton: {
         marginHorizontal: 20,
-        backgroundColor: '#FFD700',
+        backgroundColor: '#B8960A',
         borderRadius: 12,
         paddingVertical: 16,
         alignItems: 'center',
@@ -830,5 +828,19 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: 'Inter_700Bold',
         color: '#000',
+    },
+
+    // ID escaneado badge
+    scannedIdBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        marginBottom: 20,
+        gap: 8,
+    },
+    scannedIdText: {
+        fontSize: 14,
+        fontFamily: 'Inter_500Medium',
+        color: '#4CAF50',
     },
 });
