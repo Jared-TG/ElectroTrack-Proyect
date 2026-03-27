@@ -9,21 +9,22 @@ import {
     Platform,
     ScrollView,
     Image,
-    Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { API_URL } from '@/app/config/api.config';
 import { useAuth } from '@/app/context/AuthContext';
+import { useAlert } from '@/app/context/AlertContext';
 
 export default function LoginScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const { login } = useAuth();
+    const { showAlert } = useAlert();
 
     const handleLogin = async () => {
         if (!email || !password) {
-            Alert.alert('Error', 'Por favor ingresa email y contraseña');
+            showAlert({ type: 'error', title: 'Campos incompletos', message: 'Por favor ingresa email y contraseña' });
             return;
         }
 
@@ -37,14 +38,14 @@ export default function LoginScreen() {
             const data = await res.json();
 
             if (!res.ok) {
-                Alert.alert('Error', data.error || 'Credenciales incorrectas');
+                showAlert({ type: 'error', title: 'Error de acceso', message: data.error || 'Credenciales incorrectas' });
                 return;
             }
 
             router.replace('/(tabs)/principal/inicio');
             login(data.user);
         } catch (error) {
-            Alert.alert('Error', 'No se pudo conectar al servidor');
+            showAlert({ type: 'error', title: 'Sin conexión', message: 'No se pudo conectar al servidor' });
         }
     };
 

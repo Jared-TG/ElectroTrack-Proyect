@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
@@ -6,16 +6,41 @@ import {
     ScrollView,
     TouchableOpacity,
     ActivityIndicator,
+    TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useHistorial } from '@/app/hooks/useHistorial';
+import { MonthData } from '@/app/services/historialService';
 
 const MAX_KWH = 500;
+
+type SortKey = 'fecha' | 'kwh_desc' | 'kwh_asc' | 'costo_desc' | 'costo_asc';
+
+const FILTER_OPTIONS: { key: SortKey; label: string }[] = [
+    { key: 'fecha',      label: 'Fecha' },
+    { key: 'kwh_desc',   label: 'Mayor consumo' },
+    { key: 'kwh_asc',    label: 'Menor consumo' },
+    { key: 'costo_desc', label: 'Mayor costo' },
+    { key: 'costo_asc',  label: 'Menor costo' },
+];
+
+function sortMonths(months: MonthData[], sortBy: SortKey): MonthData[] {
+    const copy = [...months];
+    switch (sortBy) {
+        case 'kwh_desc':   return copy.sort((a, b) => b.kwh - a.kwh);
+        case 'kwh_asc':    return copy.sort((a, b) => a.kwh - b.kwh);
+        case 'costo_desc': return copy.sort((a, b) => b.costo - a.costo);
+        case 'costo_asc':  return copy.sort((a, b) => a.costo - b.costo);
+        default:           return copy; // 'fecha' → orden original de la API
+    }
+}
 
 export default function HistorialScreen() {
     const router = useRouter();
     const { months, totalKwh, totalCost, avgKwh, loading, error } = useHistorial();
+    const [sortBy, setSortBy] = useState<SortKey>('fecha');
+    const [searchQuery, setSearchQuery] = useState('');
 
     if (loading) {
         return (
@@ -37,6 +62,15 @@ export default function HistorialScreen() {
             </View>
         );
     }
+
+    // Filtrar localmente en memoria
+    const filteredMonths = months.filter(item => {
+        if (!searchQuery) return true;
+        const query = searchQuery.toLowerCase();
+        return item.mes.toLowerCase().includes(query) || item.anio.toString().includes(query);
+    });
+
+    const sortedMonths = sortMonths(filteredMonths, sortBy);
 
     return (
         <View style={styles.container}>
@@ -73,14 +107,49 @@ export default function HistorialScreen() {
                     <Text style={styles.averageValue}>{avgKwh} kWh</Text>
                 </View>
 
-                {/* Months Section */}
-                <View style={styles.monthsHeader}>
-                    <Ionicons name="calendar-outline" size={20} color="#FFF" />
-                    <Text style={styles.monthsTitle}>Meses</Text>
+                {/* Months Header + Search */}
+                <View style={styles.monthsHeaderRow}>
+                    <View style={styles.monthsHeader}>
+                        <Ionicons name="calendar-outline" size={20} color="#FFF" />
+                        <Text style={styles.monthsTitle}>Meses</Text>
+                    </View>
+                    <View style={styles.searchContainer}>
+                        <Ionicons name="search" size={16} color="#888" style={styles.searchIcon} />
+                        <TextInput
+                            style={styles.searchInput}
+                            placeholder="Buscar mes o año..."
+                            placeholderTextColor="#666"
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                        />
+                    </View>
                 </View>
 
-                {/* Month Cards — ahora usa datos del hook (API) */}
-                {months.map((item) => (
+                {/* Filter Chips */}
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.filtersRow}
+                >
+                    {FILTER_OPTIONS.map(opt => {
+                        const active = sortBy === opt.key;
+                        return (
+                            <TouchableOpacity
+                                key={opt.key}
+                                style={[styles.filterChip, active && styles.filterChipActive]}
+                                onPress={() => setSortBy(opt.key)}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                                    {opt.label}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
+
+                {/* Month Cards */}
+                {sortedMonths.map((item) => (
                     <View key={item.id} style={styles.monthCard}>
                         <View style={styles.monthCardContent}>
                             <View style={styles.monthLeft}>
@@ -197,17 +266,70 @@ const styles = StyleSheet.create({
         color: '#FFF',
     },
     // Months Section
-    monthsHeader: {
+    monthsHeaderRow: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 20,
+        marginBottom: 12,
+        justifyContent: 'space-between',
+    },
+    monthsHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
         gap: 8,
-        marginBottom: 16,
+    },
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#1A1A1A',
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderWidth: 1,
+        borderColor: '#333',
+        width: 180,
+    },
+    searchIcon: {
+        marginRight: 6,
+    },
+    searchInput: {
+        flex: 1,
+        color: '#FFF',
+        fontSize: 14,
+        fontFamily: 'Inter_400Regular',
+        padding: 0, // override default padding on Android
     },
     monthsTitle: {
         fontSize: 16,
         fontFamily: 'Inter_600SemiBold',
         color: '#FFF',
+    },
+    // Filter Chips
+    filtersRow: {
+        paddingHorizontal: 20,
+        paddingBottom: 16,
+        gap: 8,
+        flexDirection: 'row',
+    },
+    filterChip: {
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#444',
+        backgroundColor: '#1A1A1A',
+    },
+    filterChipActive: {
+        borderColor: '#FFD700',
+        backgroundColor: '#2A2200',
+    },
+    filterChipText: {
+        fontSize: 13,
+        fontFamily: 'Inter_500Medium',
+        color: '#888',
+    },
+    filterChipTextActive: {
+        color: '#FFD700',
     },
     // Month Card
     monthCard: {
@@ -243,7 +365,7 @@ const styles = StyleSheet.create({
     monthCost: {
         fontSize: 20,
         fontFamily: 'Inter_700Bold',
-        color: '#FFD700',
+        color: '#B8960A',
     },
     monthCurrency: {
         fontSize: 13,
@@ -266,7 +388,7 @@ const styles = StyleSheet.create({
     },
     progressBarFill: {
         height: '100%',
-        backgroundColor: '#FFD700',
+        backgroundColor: '#B8960A',
         borderRadius: 3,
     },
 });

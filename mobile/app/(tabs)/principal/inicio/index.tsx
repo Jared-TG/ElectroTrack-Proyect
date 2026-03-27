@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
     View,
     Text,
@@ -8,54 +8,106 @@ import {
     Switch,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect, useRouter } from 'expo-router';
 import CircularMeter from '@/components/CircularMeter';
 import { useAuth } from '@/app/context/AuthContext';
-
-interface Device {
-    id: string;
-    name: string;
-    icon: string;
-    watts: number;
-    isOn: boolean;
-}
+import { useDispositivos } from '@/app/hooks/useDispositivos';
 
 export default function HomeScreen() {
     const { user } = useAuth();
-    const [devices, setDevices] = useState<Device[]>([
-        { id: '1', name: 'Ventilador', icon: 'fan', watts: 60, isOn: true },
-        { id: '2', name: 'Dispensador de Agua', icon: 'water', watts: 550, isOn: true },
-        { id: '3', name: 'Televisión', icon: 'tv', watts: 120, isOn: true },
-    ]);
+    const router = useRouter();
+    const { dispositivos: devices, refresh } = useDispositivos();
 
-    // Calcular consumo total de dispositivos encendidos
-    const totalWatts = devices.reduce((sum, device) => {
-        return device.isOn ? sum + device.watts : sum;
+    // Para simplificar la demo, mantendremos un estado local de encendido/apagado para los interruptores
+    // En el sistema real esto debería venir del dispositivo (estado 'en_linea' o similar) y enviar comandos por WiFi
+    const [toggles, setToggles] = useState<Record<number, boolean>>({});
+
+    // Inicializar toggles cuando cambian los dispositivos
+    useEffect(() => {
+        setToggles(prev => {
+            const newToggles = { ...prev };
+            devices.forEach(d => {
+                if (newToggles[d.id] === undefined) {
+                    newToggles[d.id] = true;
+                }
+            });
+            return newToggles;
+        });
+    }, [devices]);
+
+    useFocusEffect(
+        useCallback(() => {
+            refresh();
+        }, [refresh])
+    );
+    //esto es de modo de pruba sera borrado despues
+    // Calcular consumo base total de dispositivos encendidos
+    const baseTotalWatts = devices.reduce((sum, device) => {
+        const isOn = toggles[device.id] ?? true;
+        // Si el dispositivo tiene 0 watts en la BD, le asignamos 40W base por defecto para la demo
+        const wattsToAdd = (device.watts && device.watts > 0) ? device.watts : 40;
+        return isOn ? sum + wattsToAdd : sum;
     }, 0);
 
-    // Calcular costo estimado (ejemplo: $0.35 MXN por kWh)
+    const [liveTotalWatts, setLiveTotalWatts] = useState(baseTotalWatts);
+
+    // Efecto para simular variación en tiempo real del medidor principal
+    useEffect(() => {
+        let isMounted = true;
+
+        if (baseTotalWatts === 0) {
+            setLiveTotalWatts(0);
+            return;
+        }
+
+        const applyVariation = () => {
+            if (!isMounted) return;
+            // Variación aleatoria entre -4% y +4% para que se note
+            const variation = baseTotalWatts * (Math.random() * 0.08 - 0.04);
+            // Añadir un pequeño ruido base independiente de si los watts son bajos
+            const noise = (Math.random() - 0.5) * 4;
+            const newLiveWatts = Math.max(0, Math.round(baseTotalWatts + variation + noise));
+            setLiveTotalWatts(newLiveWatts);
+        };
+
+        applyVariation();
+        const intervalId = setInterval(applyVariation, 2000);
+
+        return () => {
+            isMounted = false;
+            clearInterval(intervalId);
+        };
+    }, [baseTotalWatts]);
+
+    // Calcular costo estimado (ejemplo: $0.35 MXN por kWh) usando consumo base para estabilidad
     const kwhCost = 0.35;
     const hoursPerMonth = 720; // 30 días x 24 horas
-    const monthlyKwh = (totalWatts / 1000) * hoursPerMonth;
+    const monthlyKwh = (baseTotalWatts / 1000) * hoursPerMonth;
     const estimatedCost = `$${Math.round(monthlyKwh * kwhCost)} MXN`;
 
-    const toggleDevice = (deviceId: string) => {
-        setDevices(prevDevices =>
-            prevDevices.map(device =>
-                device.id === deviceId ? { ...device, isOn: !device.isOn } : device
-            )
-        );
+    const toggleDevice = (deviceId: number) => {
+        setToggles(prev => ({
+            ...prev,
+            [deviceId]: !prev[deviceId]
+        }));
     };
 
     const getDeviceIcon = (iconName: string) => {
         switch (iconName) {
-            case 'fan':
-                return <MaterialCommunityIcons name="fan" size={28} color="#FFD700" />;
-            case 'water':
-                return <Ionicons name="water" size={28} color="#FFD700" />;
             case 'tv':
-                return <Ionicons name="tv" size={28} color="#FFD700" />;
+                return <Ionicons name="tv-outline" size={28} color="#FFD700" />;
+            case 'laptop':
+                return <Ionicons name="laptop-outline" size={28} color="#FFD700" />;
+            case 'camera':
+                return <Ionicons name="camera-outline" size={28} color="#FFD700" />;
+            case 'headset':
+                return <Ionicons name="headset-outline" size={28} color="#FFD700" />;
+            case 'wifi':
+                return <Ionicons name="wifi-outline" size={28} color="#FFD700" />;
+            case 'settings':
+                return <Ionicons name="options-outline" size={28} color="#FFD700" />;
             default:
-                return <Ionicons name="hardware-chip" size={28} color="#FFD700" />;
+                return <Ionicons name="hardware-chip-outline" size={28} color="#FFD700" />;
         }
     };
 
@@ -74,7 +126,7 @@ export default function HomeScreen() {
 
                 {/* Medidor Circular */}
                 <CircularMeter
-                    currentWatts={totalWatts}
+                    currentWatts={liveTotalWatts}
                     maxWatts={2000}
                     estimatedCost={estimatedCost}
                 />
@@ -83,28 +135,58 @@ export default function HomeScreen() {
                 <View style={styles.devicesSection}>
                     <Text style={styles.sectionTitle}>Control de Dispositivos</Text>
 
-                    {devices.map((device) => (
-                        <View key={device.id} style={styles.deviceCard}>
-                            <View style={styles.deviceLeft}>
-                                <View style={styles.iconContainer}>
-                                    {getDeviceIcon(device.icon)}
-                                </View>
-                                <View style={styles.deviceInfo}>
-                                    <Text style={styles.deviceName}>{device.name}</Text>
-                                    <Text style={styles.deviceWatts}>{device.watts}w</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={20} color="#666" />
-                            </View>
-
-                            <Switch
-                                value={device.isOn}
-                                onValueChange={() => toggleDevice(device.id)}
-                                trackColor={{ false: '#333', true: '#FFD700' }}
-                                thumbColor={device.isOn ? '#FFF' : '#666'}
-                                ios_backgroundColor="#333"
-                            />
+                    {devices.length === 0 ? (
+                        <View style={{ padding: 20, alignItems: 'center', opacity: 0.7 }}>
+                            <Ionicons name="hardware-chip-outline" size={48} color="#666" style={{ marginBottom: 12 }} />
+                            <Text style={{ color: '#FFF', fontFamily: 'Inter_500Medium', textAlign: 'center' }}>
+                                No has vinculado ningún dispositivo aún.
+                            </Text>
+                            <Text style={{ color: '#888', fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 8, fontSize: 13 }}>
+                                Escanea un código QR desde la pestaña Dispositivos.
+                            </Text>
                         </View>
-                    ))}
+                    ) : (
+                        devices.map((device) => {
+                            const isOn = toggles[device.id] ?? true;
+                            return (
+                                <View key={device.id} style={styles.deviceCard}>
+                                    <TouchableOpacity
+                                        style={styles.deviceLeft}
+                                        activeOpacity={0.7}
+                                        onPress={() => router.push({
+                                            pathname: '/principal/inicio/device-detail' as any,
+                                            params: {
+                                                qr_code: device.qr_code,
+                                                nombre: device.nombre,
+                                                icono: device.icono || 'default',
+                                                watts: String((device.watts && device.watts > 0) ? device.watts : 40),
+                                            },
+                                        })}
+                                    >
+                                        <View style={styles.iconContainer}>
+                                            {getDeviceIcon(device.icono || 'hardware-chip')}
+                                        </View>
+                                        <View style={styles.deviceInfo}>
+                                            <Text style={styles.deviceName}>{device.nombre}</Text>
+                                            <Text style={styles.deviceWatts}>
+                                                {(device.watts && device.watts > 0) ? device.watts : 40}w
+                                            </Text>
+                                        </View>
+                                        <Ionicons name="chevron-forward" size={20} color="#555" />
+                                    </TouchableOpacity>
+
+                                    <Switch
+                                        value={isOn}
+                                        onValueChange={() => toggleDevice(device.id)}
+                                        trackColor={{ false: '#333', true: '#FFD700' }}
+                                        thumbColor={isOn ? '#FFF' : '#666'}
+                                        ios_backgroundColor="#333"
+                                    />
+                                </View>
+
+                            );
+                        })
+                    )}
                 </View>
             </ScrollView>
         </View>

@@ -9,20 +9,21 @@ import {
   Platform,
   ScrollView,
   Image,
-  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { API_URL } from '@/app/config/api.config';
+import { useAlert } from '@/app/context/AlertContext';
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const { showAlert } = useAlert();
 
   const handleRegister = async () => {
     if (!email || !username || !password) {
-      Alert.alert('Error', 'Todos los campos son requeridos');
+      showAlert({ type: 'error', title: 'Campos incompletos', message: 'Todos los campos son requeridos' });
       return;
     }
 
@@ -40,15 +41,18 @@ export default function RegisterScreen() {
       const data = await res.json();
 
       if (!res.ok) {
-        Alert.alert('Error', data.error || 'Error al registrar');
+        showAlert({ type: 'error', title: 'Error al registrar', message: data.error || 'No se pudo crear la cuenta' });
         return;
       }
 
-      Alert.alert('Éxito', 'Usuario registrado correctamente', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      showAlert({
+        type: 'success',
+        title: 'Cuenta creada',
+        message: 'Usuario registrado correctamente',
+        onDismiss: () => router.back(),
+      });
     } catch (error) {
-      Alert.alert('Error', 'No se pudo conectar al servidor');
+      showAlert({ type: 'error', title: 'Sin conexión', message: 'No se pudo conectar al servidor' });
     }
   };
 

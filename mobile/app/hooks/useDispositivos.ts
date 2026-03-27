@@ -5,8 +5,10 @@ import {
     createDispositivo,
     Dispositivo,
 } from '../services/dispositivoService';
+import { useAuth } from '../context/AuthContext';
 
 export function useDispositivos() {
+    const { user } = useAuth();
     const [dispositivos, setDispositivos] = useState<Dispositivo[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -14,7 +16,7 @@ export function useDispositivos() {
     const fetchDispositivos = useCallback(() => {
         setLoading(true);
         setError(null);
-        getDispositivos()
+        getDispositivos(user?.id)
             .then(setDispositivos)
             .catch(err => {
                 console.warn('Error al cargar dispositivos:', err.message);
@@ -22,14 +24,14 @@ export function useDispositivos() {
                 setDispositivos([]);
             })
             .finally(() => setLoading(false));
-    }, []);
+    }, [user?.id]);
 
     useEffect(() => {
         fetchDispositivos();
     }, [fetchDispositivos]);
 
     const addDispositivo = async (data: Omit<Dispositivo, 'id'>) => {
-        const newDevice = await createDispositivo(data);
+        const newDevice = await createDispositivo({ ...data, usuario_id: user?.id });
         setDispositivos(prev => [newDevice, ...prev]);
         return newDevice;
     };
