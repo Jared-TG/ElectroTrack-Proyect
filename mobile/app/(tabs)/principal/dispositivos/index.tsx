@@ -14,6 +14,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useDispositivos } from '@/app/hooks/useDispositivos';
 import { addLocalDevice } from '@/app/services/localDeviceService';
+import { useAuth } from '@/app/context/AuthContext';
 
 // Íconos disponibles para seleccionar
 const DEVICE_ICONS = [
@@ -46,6 +47,7 @@ function DeviceIcon({ iconKey, size = 28, color = '#FFD700' }: { iconKey: string
 }
 
 export default function DispositivosScreen() {
+    const { user } = useAuth();
     const { dispositivos, loading, error, addDispositivo, refresh } = useDispositivos();
 
     // Modal state
@@ -165,6 +167,7 @@ export default function DispositivosScreen() {
                 estado: 'en_espera',
                 online: true,
                 watts: 0,
+                usuario_id: user?.id,
             });
 
             setModalVisible(false);
