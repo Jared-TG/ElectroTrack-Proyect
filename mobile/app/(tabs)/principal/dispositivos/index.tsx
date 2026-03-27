@@ -8,13 +8,13 @@ import {
     Modal,
     TextInput,
     ActivityIndicator,
-    Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useDispositivos } from '@/app/hooks/useDispositivos';
 import { addLocalDevice } from '@/app/services/localDeviceService';
 import { useAuth } from '@/app/context/AuthContext';
+import { useAlert } from '@/app/context/AlertContext';
 
 // Íconos disponibles para seleccionar
 const DEVICE_ICONS = [
@@ -48,6 +48,7 @@ function DeviceIcon({ iconKey, size = 28, color = '#FFD700' }: { iconKey: string
 
 export default function DispositivosScreen() {
     const { user } = useAuth();
+    const { showAlert } = useAlert();
     const { dispositivos, loading, error, addDispositivo, refresh } = useDispositivos();
 
     // Modal state
@@ -80,10 +81,11 @@ export default function DispositivosScreen() {
         if (!permission?.granted) {
             const result = await requestPermission();
             if (!result.granted) {
-                Alert.alert(
-                    'Permiso requerido',
-                    'Se necesita acceso a la cámara para escanear códigos QR'
-                );
+                showAlert({
+                    type: 'info',
+                    title: 'Permiso requerido',
+                    message: 'Se necesita acceso a la cámara para escanear códigos QR',
+                });
                 return;
             }
         }
@@ -100,11 +102,11 @@ export default function DispositivosScreen() {
         const deviceId = data.trim();
         setScannedDeviceId(deviceId);
 
-        Alert.alert(
-            '✅ Dispositivo detectado',
-            `ID: ${deviceId}\n\nAhora ponle un nombre a tu dispositivo.`,
-            [{ text: 'OK' }]
-        );
+        showAlert({
+            type: 'success',
+            title: 'Dispositivo detectado',
+            message: `ID: ${deviceId}\n\nAhora ponle un nombre a tu dispositivo.`,
+        });
     };
 
     // ===== MANUAL ID =====
@@ -115,7 +117,7 @@ export default function DispositivosScreen() {
 
     const handleManualIdSubmit = () => {
         if (!manualId.trim()) {
-            Alert.alert('Error', 'Ingresa el ID del dispositivo');
+            showAlert({ type: 'error', title: 'Campo requerido', message: 'Ingresa el ID del dispositivo' });
             return;
         }
 
@@ -123,22 +125,22 @@ export default function DispositivosScreen() {
         setManualIdVisible(false);
         setManualId('');
 
-        Alert.alert(
-            '✅ ID registrado',
-            `ID: ${manualId.trim()}\n\nAhora ponle un nombre a tu dispositivo.`,
-            [{ text: 'OK' }]
-        );
+        showAlert({
+            type: 'success',
+            title: 'ID registrado',
+            message: `ID: ${manualId.trim()}\n\nAhora ponle un nombre a tu dispositivo.`,
+        });
     };
 
     // ===== VINCULAR (guardar en SQLite + servidor) =====
     const handleVincular = async () => {
         if (!deviceName.trim()) {
-            Alert.alert('Error', 'Ingresa el nombre del dispositivo');
+            showAlert({ type: 'error', title: 'Campo requerido', message: 'Ingresa el nombre del dispositivo' });
             return;
         }
 
         if (!scannedDeviceId) {
-            Alert.alert('Error', 'Primero escanea un código QR o introduce el ID manualmente');
+            showAlert({ type: 'error', title: 'ID no proporcionado', message: 'Primero escanea un código QR o introduce el ID manualmente' });
             return;
         }
 
@@ -171,9 +173,9 @@ export default function DispositivosScreen() {
             });
 
             setModalVisible(false);
-            Alert.alert('✅ Dispositivo vinculado', `${deviceName.trim()} se agregó correctamente`);
+            showAlert({ type: 'success', title: 'Dispositivo vinculado', message: `${deviceName.trim()} se agregó correctamente` });
         } catch (err: any) {
-            Alert.alert('Error', err.message || 'No se pudo vincular el dispositivo');
+            showAlert({ type: 'error', title: 'Error al vincular', message: err.message || 'No se pudo vincular el dispositivo' });
         } finally {
             setSaving(false);
         }
