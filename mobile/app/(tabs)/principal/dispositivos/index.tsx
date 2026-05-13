@@ -98,8 +98,19 @@ export default function DispositivosScreen() {
         setScanned(true);
         setScannerVisible(false);
 
-        // El QR contiene solo el ID del dispositivo ElectroTrack
         const deviceId = data.trim();
+
+        // Validar formato ElectroTrack: ET-YYYY-NNN
+        const etRegex = /^ET-\d{4}-\d{3,}$/;
+        if (!etRegex.test(deviceId)) {
+            showAlert({
+                type: 'error',
+                title: 'Código QR no válido',
+                message: 'Este código no pertenece a un dispositivo ElectroTrack.\n\nFormato válido: ET-2026-001',
+            });
+            return;
+        }
+
         setScannedDeviceId(deviceId);
 
         showAlert({
@@ -121,14 +132,27 @@ export default function DispositivosScreen() {
             return;
         }
 
-        setScannedDeviceId(manualId.trim());
+        const id = manualId.trim().toUpperCase();
+
+        // Validar formato ElectroTrack: ET-YYYY-NNN
+        const etRegex = /^ET-\d{4}-\d{3,}$/;
+        if (!etRegex.test(id)) {
+            showAlert({
+                type: 'error',
+                title: 'Formato no válido',
+                message: 'El ID debe seguir el formato ElectroTrack.\n\nEjemplo: ET-2026-001',
+            });
+            return;
+        }
+
+        setScannedDeviceId(id);
         setManualIdVisible(false);
         setManualId('');
 
         showAlert({
             type: 'success',
             title: 'ID registrado',
-            message: `ID: ${manualId.trim()}\n\nAhora ponle un nombre a tu dispositivo.`,
+            message: `ID: ${id}\n\nAhora ponle un nombre a tu dispositivo.`,
         });
     };
 
