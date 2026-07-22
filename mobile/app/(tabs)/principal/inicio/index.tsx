@@ -51,32 +51,9 @@ export default function HomeScreen() {
 
     const [liveTotalWatts, setLiveTotalWatts] = useState(baseTotalWatts);
 
-    // Efecto para simular variación en tiempo real del medidor principal
+    // Por ahora, mostrar solo la suma base sin simulación
     useEffect(() => {
-        let isMounted = true;
-
-        if (baseTotalWatts === 0) {
-            setLiveTotalWatts(0);
-            return;
-        }
-
-        const applyVariation = () => {
-            if (!isMounted) return;
-            // Variación aleatoria entre -4% y +4% para que se note
-            const variation = baseTotalWatts * (Math.random() * 0.08 - 0.04);
-            // Añadir un pequeño ruido base independiente de si los watts son bajos
-            const noise = (Math.random() - 0.5) * 4;
-            const newLiveWatts = Math.max(0, Math.round(baseTotalWatts + variation + noise));
-            setLiveTotalWatts(newLiveWatts);
-        };
-
-        applyVariation();
-        const intervalId = setInterval(applyVariation, 2000);
-
-        return () => {
-            isMounted = false;
-            clearInterval(intervalId);
-        };
+        setLiveTotalWatts(baseTotalWatts);
     }, [baseTotalWatts]);
 
     // Calcular costo estimado (ejemplo: $0.35 MXN por kWh) usando consumo base para estabilidad
@@ -156,6 +133,7 @@ export default function HomeScreen() {
                                         onPress={() => router.push({
                                             pathname: '/principal/inicio/device-detail' as any,
                                             params: {
+                                                id: device.id,
                                                 qr_code: device.qr_code,
                                                 nombre: device.nombre,
                                                 icono: device.icono || 'default',

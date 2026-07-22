@@ -10,11 +10,13 @@ import {
     ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useDispositivos } from '@/app/hooks/useDispositivos';
 import { addLocalDevice } from '@/app/services/localDeviceService';
 import { useAuth } from '@/app/context/AuthContext';
 import { useAlert } from '@/app/context/AlertContext';
+import BLESetupModal from '@/app/components/BLESetupModal';
 
 // Íconos disponibles para seleccionar
 const DEVICE_ICONS = [
@@ -48,6 +50,7 @@ function DeviceIcon({ iconKey, size = 28, color = '#FFD700' }: { iconKey: string
 
 export default function DispositivosScreen() {
     const { user } = useAuth();
+    const router = useRouter();
     const { showAlert } = useAlert();
     const { dispositivos, loading, error, addDispositivo, refresh } = useDispositivos();
 
@@ -68,6 +71,9 @@ export default function DispositivosScreen() {
     // Manual ID state
     const [manualIdVisible, setManualIdVisible] = useState(false);
     const [manualId, setManualId] = useState('');
+
+    // BLE setup state
+    const [bleModalVisible, setBleModalVisible] = useState(false);
 
     const handleOpenModal = () => {
         setSelectedIcon('tv');
@@ -100,13 +106,11 @@ export default function DispositivosScreen() {
 
         const deviceId = data.trim();
 
-        // Validar formato ElectroTrack: ET-YYYY-NNN
-        const etRegex = /^ET-\d{4}-\d{3,}$/;
-        if (!etRegex.test(deviceId)) {
+        if (deviceId.length < 6) {
             showAlert({
                 type: 'error',
-                title: 'Código QR no válido',
-                message: 'Este código no pertenece a un dispositivo ElectroTrack.\n\nFormato válido: ET-2026-001',
+                title: 'Código no válido',
+                message: 'El código escaneado no parece ser un dispositivo válido.',
             });
             return;
         }
@@ -134,13 +138,11 @@ export default function DispositivosScreen() {
 
         const id = manualId.trim().toUpperCase();
 
-        // Validar formato ElectroTrack: ET-YYYY-NNN
-        const etRegex = /^ET-\d{4}-\d{3,}$/;
-        if (!etRegex.test(id)) {
+        if (id.length < 6) {
             showAlert({
                 type: 'error',
                 title: 'Formato no válido',
-                message: 'El ID debe seguir el formato ElectroTrack.\n\nEjemplo: ET-2026-001',
+                message: 'El ID es demasiado corto.',
             });
             return;
         }
@@ -183,7 +185,7 @@ export default function DispositivosScreen() {
             });
 
             // También crear en el servidor
-            await addDispositivo({
+            const newDevice: any = await addDispositivo({
                 nombre: deviceName.trim(),
                 icono: selectedIcon !== 'tv' ? selectedIcon : null,
                 qr_code: scannedDeviceId,
@@ -197,12 +199,24 @@ export default function DispositivosScreen() {
             });
 
             setModalVisible(false);
-            showAlert({ type: 'success', title: 'Dispositivo vinculado', message: `${deviceName.trim()} se agregó correctamente` });
+
+            if (!newDevice?.ip_local) {
+                // El dispositivo no tiene IP, lanzar configuración Wi-Fi
+                setBleModalVisible(true);
+            } else {
+                showAlert({ type: 'success', title: 'Dispositivo vinculado', message: `${deviceName.trim()} se agregó correctamente` });
+            }
         } catch (err: any) {
             showAlert({ type: 'error', title: 'Error al vincular', message: err.message || 'No se pudo vincular el dispositivo' });
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleBLESuccess = () => {
+        setBleModalVisible(false);
+        showAlert({ type: 'success', title: 'Configuración exitosa', message: `${deviceName.trim()} fue conectado a la red Wi-Fi y vinculado.` });
+        refresh();
     };
 
     // Loading state
@@ -230,6 +244,11 @@ export default function DispositivosScreen() {
 
     return (
         <View style={styles.container}>
+            <BLESetupModal 
+                visible={bleModalVisible} 
+                onClose={() => setBleModalVisible(false)} 
+                onSuccess={handleBLESuccess} 
+            />
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 {/* Header */}
                 <View style={styles.header}>
@@ -248,7 +267,21 @@ export default function DispositivosScreen() {
                     </View>
                 ) : (
                     dispositivos.map((device) => (
-                        <View key={device.id} style={styles.deviceCard}>
+                        <TouchableOpacity
+                            key={device.id}
+                            style={styles.deviceCard}
+                            activeOpacity={0.7}
+                            onPress={() => router.push({
+                                pathname: '/principal/inicio/device-detail' as any,
+                                params: {
+                                    id: device.id,
+                                    qr_code: device.qr_code,
+                                    nombre: device.nombre,
+                                    icono: device.icono || 'default',
+                                    watts: String((device.watts && device.watts > 0) ? device.watts : 40),
+                                },
+                            })}
+                        >
                             <View style={styles.deviceLeft}>
                                 <View style={styles.iconContainer}>
                                     <DeviceIcon iconKey={device.icono || 'default'} size={28} color="#FFD700" />
@@ -271,7 +304,8 @@ export default function DispositivosScreen() {
                                     </View>
                                 </View>
                             </View>
-                        </View>
+                            <Ionicons name="chevron-forward" size={20} color="#555" />
+                        </TouchableOpacity>
                     ))
                 )}
             </ScrollView>
@@ -543,10 +577,14 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         borderWidth: 1,
         borderColor: '#333',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     deviceLeft: {
         flexDirection: 'row',
         alignItems: 'center',
+        flex: 1,
     },
     iconContainer: {
         width: 50,
