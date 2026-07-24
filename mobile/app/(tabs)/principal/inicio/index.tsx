@@ -6,12 +6,14 @@ import {
     ScrollView,
     TouchableOpacity,
     Switch,
+    Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import CircularMeter from '@/components/CircularMeter';
 import { useAuth } from '@/app/context/AuthContext';
 import { useDispositivos } from '@/app/hooks/useDispositivos';
+import { API_URL } from '@/app/config/api.config';
 
 export default function HomeScreen() {
     const { user } = useAuth();
@@ -62,11 +64,45 @@ export default function HomeScreen() {
     const monthlyKwh = (baseTotalWatts / 1000) * hoursPerMonth;
     const estimatedCost = `$${Math.round(monthlyKwh * kwhCost)} MXN`;
 
-    const toggleDevice = (deviceId: number) => {
-        setToggles(prev => ({
-            ...prev,
-            [deviceId]: !prev[deviceId]
-        }));
+    const toggleDevice = (deviceId: number, deviceName: string, deviceQrCode: string) => {
+        const currentState = toggles[deviceId] ?? true;
+        const newState = !currentState;
+
+        Alert.alert(
+            newState ? '¿Encender dispositivo?' : '¿Apagar dispositivo?',
+            newState
+                ? `¿Estás seguro de que deseas encender "${deviceName}"?`
+                : `¿Estás seguro de que deseas apagar "${deviceName}"? Se cortará la energía del equipo conectado.`,
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: newState ? 'Encender' : 'Apagar',
+                    style: newState ? 'default' : 'destructive',
+                    onPress: async () => {
+                        setToggles(prev => ({
+                            ...prev,
+                            [deviceId]: newState
+                        }));
+
+                        try {
+                            const res = await fetch(`${API_URL}/dispositivos/${deviceQrCode}/relay`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ state: newState ? 'ON' : 'OFF' }),
+                            });
+                            if (!res.ok) throw new Error('Error');
+                        } catch (e) {
+                            console.error('[Relay] Error:', e);
+                            // Revertir el toggle si falla
+                            setToggles(prev => ({
+                                ...prev,
+                                [deviceId]: !newState
+                            }));
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     const getDeviceIcon = (iconName: string) => {
@@ -155,7 +191,7 @@ export default function HomeScreen() {
 
                                     <Switch
                                         value={isOn}
-                                        onValueChange={() => toggleDevice(device.id)}
+                                        onValueChange={() => toggleDevice(device.id, device.nombre, device.qr_code)}
                                         trackColor={{ false: '#333', true: '#FFD700' }}
                                         thumbColor={isOn ? '#FFF' : '#666'}
                                         ios_backgroundColor="#333"

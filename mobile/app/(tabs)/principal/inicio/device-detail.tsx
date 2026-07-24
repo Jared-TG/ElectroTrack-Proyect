@@ -9,7 +9,8 @@ import {
     Dimensions,
     ActivityIndicator,
     Modal,
-    TextInput
+    TextInput,
+    Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -153,26 +154,54 @@ export default function DeviceDetailScreen() {
 
     const handleToggle = async () => {
         const newState = !isOn;
-        setIsOn(newState);
 
-        // Si apagamos, limpiar chart
-        if (!newState) {
-            setChartData([]);
-            pointCounter.current = 0;
-            setCurrentData(null);
-            setLoading(true);
-        }
+        Alert.alert(
+            newState ? '¿Encender dispositivo?' : '¿Apagar dispositivo?',
+            newState
+                ? `¿Estás seguro de que deseas encender "${displayNombre}"?`
+                : `¿Estás seguro de que deseas apagar "${displayNombre}"? Se cortará la energía del equipo conectado.`,
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: newState ? 'Encender' : 'Apagar',
+                    style: newState ? 'default' : 'destructive',
+                    onPress: async () => {
+                        setIsOn(newState);
 
-        // Controlar el relé físico via backend
-        try {
-            await fetch(`${API_URL}/dispositivos/${qr_code}/relay`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ state: newState ? 'ON' : 'OFF' }),
-            });
-        } catch (e) {
-            console.error('[Relay] Error al cambiar estado:', e);
-        }
+                        // Si apagamos, limpiar chart
+                        if (!newState) {
+                            setChartData([]);
+                            pointCounter.current = 0;
+                            setCurrentData(null);
+                            setLoading(true);
+                        }
+
+                        // Controlar el relé físico via backend
+                        try {
+                            const res = await fetch(`${API_URL}/dispositivos/${qr_code}/relay`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ state: newState ? 'ON' : 'OFF' }),
+                            });
+                            if (!res.ok) throw new Error('Error al cambiar estado del relé');
+                            showAlert({
+                                type: 'success',
+                                title: newState ? 'Encendido' : 'Apagado',
+                                message: `El dispositivo se ha ${newState ? 'encendido' : 'apagado'} correctamente.`,
+                            });
+                        } catch (e: any) {
+                            console.error('[Relay] Error al cambiar estado:', e);
+                            setIsOn(!newState); // revertir
+                            showAlert({
+                                type: 'error',
+                                title: 'Error',
+                                message: 'No se pudo cambiar el estado del relé. Verifica que el dispositivo esté en línea.',
+                            });
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     return (
