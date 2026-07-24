@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
     View,
     Text,
@@ -6,61 +6,100 @@ import {
     ScrollView,
     TouchableOpacity,
     Switch,
+    Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import CircularMeter from '@/components/CircularMeter';
 import { useAuth } from '@/app/context/AuthContext';
-import { getLocalDevices, LocalDispositivo } from '@/app/services/localDeviceService';
+import { useDispositivos } from '@/app/hooks/useDispositivos';
+import { API_URL } from '@/app/config/api.config';
+import ConfirmRelayModal from '@/app/components/ConfirmRelayModal';
 
 export default function HomeScreen() {
     const { user } = useAuth();
     const router = useRouter();
-    const [devices, setDevices] = useState<LocalDispositivo[]>([]);
-    
+    const { dispositivos: devices, refresh } = useDispositivos();
+
     // Para simplificar la demo, mantendremos un estado local de encendido/apagado para los interruptores
     // En el sistema real esto debería venir del dispositivo (estado 'en_linea' o similar) y enviar comandos por WiFi
-    const [toggles, setToggles] = useState<Record<string, boolean>>({});
+    const [toggles, setToggles] = useState<Record<number, boolean>>({});
+    const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+    const [pendingToggle, setPendingToggle] = useState<{deviceId: number, deviceName: string, deviceQrCode: string, newState: boolean} | null>(null);
 
-    const fetchDevices = async () => {
-        const local = await getLocalDevices();
-        setDevices(local);
-        
-        // Inicializar toggles para los nuevos dispositivos que no estén en el estado
+    // Inicializar toggles cuando cambian los dispositivos
+    useEffect(() => {
         setToggles(prev => {
             const newToggles = { ...prev };
-            local.forEach(d => {
-                if (newToggles[d.qr_code] === undefined) {
-                    newToggles[d.qr_code] = true; // Por defecto encendidos en la UI para la demo
+            devices.forEach(d => {
+                if (newToggles[d.id] === undefined) {
+                    newToggles[d.id] = true;
                 }
             });
             return newToggles;
         });
-    };
+    }, [devices]);
 
     useFocusEffect(
         useCallback(() => {
-            fetchDevices();
-        }, [])
+            refresh();
+        }, [refresh])
     );
-
-    // Calcular consumo total de dispositivos encendidos
-    const totalWatts = devices.reduce((sum, device) => {
-        const isOn = toggles[device.qr_code] ?? true;
-        return isOn ? sum + (device.watts || 0) : sum;
+    //esto es de modo de pruba sera borrado despues
+    // Calcular consumo base total de dispositivos encendidos
+    const baseTotalWatts = devices.reduce((sum, device) => {
+        const isOn = toggles[device.id] ?? true;
+        // Si el dispositivo tiene 0 watts en la BD, le asignamos 40W base por defecto para la demo
+        const wattsToAdd = (device.watts && device.watts > 0) ? device.watts : 40;
+        return isOn ? sum + wattsToAdd : sum;
     }, 0);
 
-    // Calcular costo estimado (ejemplo: $0.35 MXN por kWh)
+    const [liveTotalWatts, setLiveTotalWatts] = useState(baseTotalWatts);
+
+    // Por ahora, mostrar solo la suma base sin simulación
+    useEffect(() => {
+        setLiveTotalWatts(baseTotalWatts);
+    }, [baseTotalWatts]);
+
+    // Calcular costo estimado (ejemplo: $0.35 MXN por kWh) usando consumo base para estabilidad
     const kwhCost = 0.35;
     const hoursPerMonth = 720; // 30 días x 24 horas
-    const monthlyKwh = (totalWatts / 1000) * hoursPerMonth;
+    const monthlyKwh = (baseTotalWatts / 1000) * hoursPerMonth;
     const estimatedCost = `$${Math.round(monthlyKwh * kwhCost)} MXN`;
 
-    const toggleDevice = (deviceId: string) => {
+    const toggleDevice = (deviceId: number, deviceName: string, deviceQrCode: string) => {
+        const currentState = toggles[deviceId] ?? true;
+        const newState = !currentState;
+
+        setPendingToggle({ deviceId, deviceName, deviceQrCode, newState });
+        setConfirmModalVisible(true);
+    };
+
+    const executeToggle = async () => {
+        if (!pendingToggle) return;
+        
+        const { deviceId, deviceQrCode, newState } = pendingToggle;
+
         setToggles(prev => ({
             ...prev,
-            [deviceId]: !prev[deviceId]
+            [deviceId]: newState
         }));
+
+        try {
+            const res = await fetch(`${API_URL}/dispositivos/${deviceQrCode}/relay`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ state: newState ? 'ON' : 'OFF' }),
+            });
+            if (!res.ok) throw new Error('Error');
+        } catch (e) {
+            console.error('[Relay] Error:', e);
+            // Revertir el toggle si falla
+            setToggles(prev => ({
+                ...prev,
+                [deviceId]: !newState
+            }));
+        }
     };
 
     const getDeviceIcon = (iconName: string) => {
@@ -97,7 +136,7 @@ export default function HomeScreen() {
 
                 {/* Medidor Circular */}
                 <CircularMeter
-                    currentWatts={totalWatts}
+                    currentWatts={liveTotalWatts}
                     maxWatts={2000}
                     estimatedCost={estimatedCost}
                 />
@@ -118,19 +157,20 @@ export default function HomeScreen() {
                         </View>
                     ) : (
                         devices.map((device) => {
-                            const isOn = toggles[device.qr_code] ?? true;
+                            const isOn = toggles[device.id] ?? true;
                             return (
-                                <View key={device.qr_code} style={styles.deviceCard}>
+                                <View key={device.id} style={styles.deviceCard}>
                                     <TouchableOpacity
                                         style={styles.deviceLeft}
                                         activeOpacity={0.7}
                                         onPress={() => router.push({
                                             pathname: '/principal/inicio/device-detail' as any,
                                             params: {
+                                                id: device.id,
                                                 qr_code: device.qr_code,
                                                 nombre: device.nombre,
                                                 icono: device.icono || 'default',
-                                                watts: String(device.watts || 0),
+                                                watts: String((device.watts && device.watts > 0) ? device.watts : 40),
                                             },
                                         })}
                                     >
@@ -139,25 +179,35 @@ export default function HomeScreen() {
                                         </View>
                                         <View style={styles.deviceInfo}>
                                             <Text style={styles.deviceName}>{device.nombre}</Text>
-                                            <Text style={styles.deviceWatts}>{device.watts || 0}w</Text>
+                                            <Text style={styles.deviceWatts}>
+                                                {(device.watts && device.watts > 0) ? device.watts : 40}w
+                                            </Text>
                                         </View>
                                         <Ionicons name="chevron-forward" size={20} color="#555" />
                                     </TouchableOpacity>
 
                                     <Switch
                                         value={isOn}
-                                        onValueChange={() => toggleDevice(device.qr_code)}
+                                        onValueChange={() => toggleDevice(device.id, device.nombre, device.qr_code)}
                                         trackColor={{ false: '#333', true: '#FFD700' }}
                                         thumbColor={isOn ? '#FFF' : '#666'}
                                         ios_backgroundColor="#333"
                                     />
                                 </View>
 
-);
+                            );
                         })
                     )}
                 </View>
             </ScrollView>
+
+            <ConfirmRelayModal 
+                visible={confirmModalVisible}
+                onClose={() => setConfirmModalVisible(false)}
+                onConfirm={executeToggle}
+                deviceName={pendingToggle?.deviceName || ''}
+                isTurningOn={pendingToggle?.newState || false}
+            />
         </View>
     );
 }

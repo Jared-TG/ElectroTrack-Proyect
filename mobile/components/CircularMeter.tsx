@@ -53,7 +53,7 @@ export default function CircularMeter({ currentWatts, maxWatts, estimatedCost }:
               cx={center}
               cy={center}
               r={radius}
-              stroke="#FFD700"
+              stroke="#B8960A"
               strokeWidth={strokeWidth}
               fill="none"
               strokeDasharray={circumference}
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     paddingVertical: 15,
     borderWidth: 2,
-    borderColor: '#FFD700',
+    borderColor: '#B8960A',
     borderRadius: 12,
     minWidth: 250,
     alignItems: 'center',

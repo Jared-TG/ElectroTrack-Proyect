@@ -8,12 +8,15 @@ import {
     Modal,
     TextInput,
     ActivityIndicator,
-    Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useDispositivos } from '@/app/hooks/useDispositivos';
 import { addLocalDevice } from '@/app/services/localDeviceService';
+import { useAuth } from '@/app/context/AuthContext';
+import { useAlert } from '@/app/context/AlertContext';
+import BLESetupModal from '@/app/components/BLESetupModal';
 
 // Íconos disponibles para seleccionar
 const DEVICE_ICONS = [
@@ -46,6 +49,9 @@ function DeviceIcon({ iconKey, size = 28, color = '#FFD700' }: { iconKey: string
 }
 
 export default function DispositivosScreen() {
+    const { user } = useAuth();
+    const router = useRouter();
+    const { showAlert } = useAlert();
     const { dispositivos, loading, error, addDispositivo, refresh } = useDispositivos();
 
     // Modal state
@@ -66,6 +72,9 @@ export default function DispositivosScreen() {
     const [manualIdVisible, setManualIdVisible] = useState(false);
     const [manualId, setManualId] = useState('');
 
+    // BLE setup state
+    const [bleModalVisible, setBleModalVisible] = useState(false);
+
     const handleOpenModal = () => {
         setSelectedIcon('tv');
         setDeviceName('');
@@ -78,10 +87,11 @@ export default function DispositivosScreen() {
         if (!permission?.granted) {
             const result = await requestPermission();
             if (!result.granted) {
-                Alert.alert(
-                    'Permiso requerido',
-                    'Se necesita acceso a la cámara para escanear códigos QR'
-                );
+                showAlert({
+                    type: 'info',
+                    title: 'Permiso requerido',
+                    message: 'Se necesita acceso a la cámara para escanear códigos QR',
+                });
                 return;
             }
         }
@@ -94,15 +104,24 @@ export default function DispositivosScreen() {
         setScanned(true);
         setScannerVisible(false);
 
-        // El QR contiene solo el ID del dispositivo ElectroTrack
         const deviceId = data.trim();
+
+        if (deviceId.length < 6) {
+            showAlert({
+                type: 'error',
+                title: 'Código no válido',
+                message: 'El código escaneado no parece ser un dispositivo válido.',
+            });
+            return;
+        }
+
         setScannedDeviceId(deviceId);
 
-        Alert.alert(
-            '✅ Dispositivo detectado',
-            `ID: ${deviceId}\n\nAhora ponle un nombre a tu dispositivo.`,
-            [{ text: 'OK' }]
-        );
+        showAlert({
+            type: 'success',
+            title: 'Dispositivo detectado',
+            message: `ID: ${deviceId}\n\nAhora ponle un nombre a tu dispositivo.`,
+        });
     };
 
     // ===== MANUAL ID =====
@@ -113,30 +132,41 @@ export default function DispositivosScreen() {
 
     const handleManualIdSubmit = () => {
         if (!manualId.trim()) {
-            Alert.alert('Error', 'Ingresa el ID del dispositivo');
+            showAlert({ type: 'error', title: 'Campo requerido', message: 'Ingresa el ID del dispositivo' });
             return;
         }
 
-        setScannedDeviceId(manualId.trim());
+        const id = manualId.trim().toUpperCase();
+
+        if (id.length < 6) {
+            showAlert({
+                type: 'error',
+                title: 'Formato no válido',
+                message: 'El ID es demasiado corto.',
+            });
+            return;
+        }
+
+        setScannedDeviceId(id);
         setManualIdVisible(false);
         setManualId('');
 
-        Alert.alert(
-            '✅ ID registrado',
-            `ID: ${manualId.trim()}\n\nAhora ponle un nombre a tu dispositivo.`,
-            [{ text: 'OK' }]
-        );
+        showAlert({
+            type: 'success',
+            title: 'ID registrado',
+            message: `ID: ${id}\n\nAhora ponle un nombre a tu dispositivo.`,
+        });
     };
 
     // ===== VINCULAR (guardar en SQLite + servidor) =====
     const handleVincular = async () => {
         if (!deviceName.trim()) {
-            Alert.alert('Error', 'Ingresa el nombre del dispositivo');
+            showAlert({ type: 'error', title: 'Campo requerido', message: 'Ingresa el nombre del dispositivo' });
             return;
         }
 
         if (!scannedDeviceId) {
-            Alert.alert('Error', 'Primero escanea un código QR o introduce el ID manualmente');
+            showAlert({ type: 'error', title: 'ID no proporcionado', message: 'Primero escanea un código QR o introduce el ID manualmente' });
             return;
         }
 
@@ -155,7 +185,7 @@ export default function DispositivosScreen() {
             });
 
             // También crear en el servidor
-            await addDispositivo({
+            const newDevice: any = await addDispositivo({
                 nombre: deviceName.trim(),
                 icono: selectedIcon !== 'tv' ? selectedIcon : null,
                 qr_code: scannedDeviceId,
@@ -165,15 +195,28 @@ export default function DispositivosScreen() {
                 estado: 'en_espera',
                 online: true,
                 watts: 0,
+                usuario_id: user?.id,
             });
 
             setModalVisible(false);
-            Alert.alert('✅ Dispositivo vinculado', `${deviceName.trim()} se agregó correctamente`);
+
+            if (!newDevice?.ip_local) {
+                // El dispositivo no tiene IP, lanzar configuración Wi-Fi
+                setBleModalVisible(true);
+            } else {
+                showAlert({ type: 'success', title: 'Dispositivo vinculado', message: `${deviceName.trim()} se agregó correctamente` });
+            }
         } catch (err: any) {
-            Alert.alert('Error', err.message || 'No se pudo vincular el dispositivo');
+            showAlert({ type: 'error', title: 'Error al vincular', message: err.message || 'No se pudo vincular el dispositivo' });
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleBLESuccess = () => {
+        setBleModalVisible(false);
+        showAlert({ type: 'success', title: 'Configuración exitosa', message: `${deviceName.trim()} fue conectado a la red Wi-Fi y vinculado.` });
+        refresh();
     };
 
     // Loading state
@@ -201,6 +244,11 @@ export default function DispositivosScreen() {
 
     return (
         <View style={styles.container}>
+            <BLESetupModal 
+                visible={bleModalVisible} 
+                onClose={() => setBleModalVisible(false)} 
+                onSuccess={handleBLESuccess} 
+            />
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 {/* Header */}
                 <View style={styles.header}>
@@ -219,7 +267,21 @@ export default function DispositivosScreen() {
                     </View>
                 ) : (
                     dispositivos.map((device) => (
-                        <View key={device.id} style={styles.deviceCard}>
+                        <TouchableOpacity
+                            key={device.id}
+                            style={styles.deviceCard}
+                            activeOpacity={0.7}
+                            onPress={() => router.push({
+                                pathname: '/principal/inicio/device-detail' as any,
+                                params: {
+                                    id: device.id,
+                                    qr_code: device.qr_code,
+                                    nombre: device.nombre,
+                                    icono: device.icono || 'default',
+                                    watts: String((device.watts && device.watts > 0) ? device.watts : 40),
+                                },
+                            })}
+                        >
                             <View style={styles.deviceLeft}>
                                 <View style={styles.iconContainer}>
                                     <DeviceIcon iconKey={device.icono || 'default'} size={28} color="#FFD700" />
@@ -242,7 +304,8 @@ export default function DispositivosScreen() {
                                     </View>
                                 </View>
                             </View>
-                        </View>
+                            <Ionicons name="chevron-forward" size={20} color="#555" />
+                        </TouchableOpacity>
                     ))
                 )}
             </ScrollView>
@@ -514,10 +577,14 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         borderWidth: 1,
         borderColor: '#333',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     deviceLeft: {
         flexDirection: 'row',
         alignItems: 'center',
+        flex: 1,
     },
     iconContainer: {
         width: 50,
