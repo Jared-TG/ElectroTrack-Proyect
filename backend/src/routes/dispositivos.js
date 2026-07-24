@@ -213,6 +213,32 @@ module.exports = async function (fastify) {
   });
 
   // ============================================================
+  // DELETE /dispositivos/:id — eliminar dispositivo
+  // ============================================================
+  fastify.delete('/dispositivos/:id', async (request, reply) => {
+    const { id } = request.params;
+    
+    try {
+      const [result] = await fastify.mysql.query(
+        'DELETE FROM dispositivos WHERE id = ?',
+        [id]
+      );
+
+      if (result.affectedRows === 0) {
+        return reply.status(404).send({ error: 'Dispositivo no encontrado' });
+      }
+
+      return reply.status(200).send({
+        status: 'ok',
+        message: 'Dispositivo eliminado exitosamente'
+      });
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Error al eliminar dispositivo' });
+    }
+  });
+
+  // ============================================================
   // POST /dispositivos/:id/relay — controlar relé via proxy
   // ============================================================
   fastify.post('/dispositivos/:id/relay', async (request, reply) => {
