@@ -14,6 +14,7 @@ import CircularMeter from '@/components/CircularMeter';
 import { useAuth } from '@/app/context/AuthContext';
 import { useDispositivos } from '@/app/hooks/useDispositivos';
 import { API_URL } from '@/app/config/api.config';
+import ConfirmRelayModal from '@/app/components/ConfirmRelayModal';
 
 export default function HomeScreen() {
     const { user } = useAuth();
@@ -23,6 +24,8 @@ export default function HomeScreen() {
     // Para simplificar la demo, mantendremos un estado local de encendido/apagado para los interruptores
     // En el sistema real esto debería venir del dispositivo (estado 'en_linea' o similar) y enviar comandos por WiFi
     const [toggles, setToggles] = useState<Record<number, boolean>>({});
+    const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+    const [pendingToggle, setPendingToggle] = useState<{deviceId: number, deviceName: string, deviceQrCode: string, newState: boolean} | null>(null);
 
     // Inicializar toggles cuando cambian los dispositivos
     useEffect(() => {
@@ -68,41 +71,35 @@ export default function HomeScreen() {
         const currentState = toggles[deviceId] ?? true;
         const newState = !currentState;
 
-        Alert.alert(
-            newState ? '¿Encender dispositivo?' : '¿Apagar dispositivo?',
-            newState
-                ? `¿Estás seguro de que deseas encender "${deviceName}"?`
-                : `¿Estás seguro de que deseas apagar "${deviceName}"? Se cortará la energía del equipo conectado.`,
-            [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                    text: newState ? 'Encender' : 'Apagar',
-                    style: newState ? 'default' : 'destructive',
-                    onPress: async () => {
-                        setToggles(prev => ({
-                            ...prev,
-                            [deviceId]: newState
-                        }));
+        setPendingToggle({ deviceId, deviceName, deviceQrCode, newState });
+        setConfirmModalVisible(true);
+    };
 
-                        try {
-                            const res = await fetch(`${API_URL}/dispositivos/${deviceQrCode}/relay`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ state: newState ? 'ON' : 'OFF' }),
-                            });
-                            if (!res.ok) throw new Error('Error');
-                        } catch (e) {
-                            console.error('[Relay] Error:', e);
-                            // Revertir el toggle si falla
-                            setToggles(prev => ({
-                                ...prev,
-                                [deviceId]: !newState
-                            }));
-                        }
-                    },
-                },
-            ]
-        );
+    const executeToggle = async () => {
+        if (!pendingToggle) return;
+        
+        const { deviceId, deviceQrCode, newState } = pendingToggle;
+
+        setToggles(prev => ({
+            ...prev,
+            [deviceId]: newState
+        }));
+
+        try {
+            const res = await fetch(`${API_URL}/dispositivos/${deviceQrCode}/relay`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ state: newState ? 'ON' : 'OFF' }),
+            });
+            if (!res.ok) throw new Error('Error');
+        } catch (e) {
+            console.error('[Relay] Error:', e);
+            // Revertir el toggle si falla
+            setToggles(prev => ({
+                ...prev,
+                [deviceId]: !newState
+            }));
+        }
     };
 
     const getDeviceIcon = (iconName: string) => {
@@ -203,6 +200,14 @@ export default function HomeScreen() {
                     )}
                 </View>
             </ScrollView>
+
+            <ConfirmRelayModal 
+                visible={confirmModalVisible}
+                onClose={() => setConfirmModalVisible(false)}
+                onConfirm={executeToggle}
+                deviceName={pendingToggle?.deviceName || ''}
+                isTurningOn={pendingToggle?.newState || false}
+            />
         </View>
     );
 }

@@ -19,6 +19,7 @@ import { API_URL } from '@/app/config/api.config';
 import { useAlert } from '@/app/context/AlertContext';
 import BLESetupModal from '@/app/components/BLESetupModal';
 import OnlineWiFiModal from '@/app/components/OnlineWiFiModal';
+import ConfirmRelayModal from '@/app/components/ConfirmRelayModal';
 
 const DEVICE_ICONS = [
     { key: 'tv', label: 'TV', component: (color: string) => <Ionicons name="tv-outline" size={26} color={color} /> },
@@ -71,6 +72,8 @@ export default function DeviceDetailScreen() {
     const [isUpdating, setIsUpdating] = useState(false);
     const [bleModalVisible, setBleModalVisible] = useState(false);
     const [onlineWifiModalVisible, setOnlineWifiModalVisible] = useState(false);
+    const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+    const [pendingState, setPendingState] = useState(false);
 
     const [isOn, setIsOn] = useState(true);
     const [chartData, setChartData] = useState<DataPoint[]>([]);
@@ -154,54 +157,44 @@ export default function DeviceDetailScreen() {
 
     const handleToggle = async () => {
         const newState = !isOn;
+        setPendingState(newState);
+        setConfirmModalVisible(true);
+    };
 
-        Alert.alert(
-            newState ? '¿Encender dispositivo?' : '¿Apagar dispositivo?',
-            newState
-                ? `¿Estás seguro de que deseas encender "${displayNombre}"?`
-                : `¿Estás seguro de que deseas apagar "${displayNombre}"? Se cortará la energía del equipo conectado.`,
-            [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                    text: newState ? 'Encender' : 'Apagar',
-                    style: newState ? 'default' : 'destructive',
-                    onPress: async () => {
-                        setIsOn(newState);
+    const executeToggle = async () => {
+        const newState = pendingState;
+        setIsOn(newState);
 
-                        // Si apagamos, limpiar chart
-                        if (!newState) {
-                            setChartData([]);
-                            pointCounter.current = 0;
-                            setCurrentData(null);
-                            setLoading(true);
-                        }
+        // Si apagamos, limpiar chart
+        if (!newState) {
+            setChartData([]);
+            pointCounter.current = 0;
+            setCurrentData(null);
+            setLoading(true);
+        }
 
-                        // Controlar el relé físico via backend
-                        try {
-                            const res = await fetch(`${API_URL}/dispositivos/${qr_code}/relay`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ state: newState ? 'ON' : 'OFF' }),
-                            });
-                            if (!res.ok) throw new Error('Error al cambiar estado del relé');
-                            showAlert({
-                                type: 'success',
-                                title: newState ? 'Encendido' : 'Apagado',
-                                message: `El dispositivo se ha ${newState ? 'encendido' : 'apagado'} correctamente.`,
-                            });
-                        } catch (e: any) {
-                            console.error('[Relay] Error al cambiar estado:', e);
-                            setIsOn(!newState); // revertir
-                            showAlert({
-                                type: 'error',
-                                title: 'Error',
-                                message: 'No se pudo cambiar el estado del relé. Verifica que el dispositivo esté en línea.',
-                            });
-                        }
-                    },
-                },
-            ]
-        );
+        // Controlar el relé físico via backend
+        try {
+            const res = await fetch(`${API_URL}/dispositivos/${qr_code}/relay`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ state: newState ? 'ON' : 'OFF' }),
+            });
+            if (!res.ok) throw new Error('Error al cambiar estado del relé');
+            showAlert({
+                type: 'success',
+                title: newState ? 'Encendido' : 'Apagado',
+                message: `El dispositivo se ha ${newState ? 'encendido' : 'apagado'} correctamente.`,
+            });
+        } catch (e: any) {
+            console.error('[Relay] Error al cambiar estado:', e);
+            setIsOn(!newState); // revertir
+            showAlert({
+                type: 'error',
+                title: 'Error',
+                message: 'No se pudo cambiar el estado del relé. Verifica que el dispositivo esté en línea.',
+            });
+        }
     };
 
     return (
@@ -331,14 +324,22 @@ export default function DeviceDetailScreen() {
                 }} 
             />
 
-            <OnlineWiFiModal
+            <OnlineWiFiModal 
                 visible={onlineWifiModalVisible}
                 onClose={() => setOnlineWifiModalVisible(false)}
-                deviceId={id}
+                deviceId={id as string}
                 onSuccess={() => {
                     setOnlineWifiModalVisible(false);
-                    showAlert({ type: 'success', title: 'Configuración enviada', message: 'El dispositivo ha recibido la nueva red y se está reiniciando.' });
+                    showAlert({ type: 'success', title: 'WiFi Actualizado', message: 'Las credenciales se actualizaron correctamente.' });
                 }}
+            />
+
+            <ConfirmRelayModal 
+                visible={confirmModalVisible}
+                onClose={() => setConfirmModalVisible(false)}
+                onConfirm={executeToggle}
+                deviceName={displayNombre}
+                isTurningOn={pendingState}
             />
 
             <Modal
