@@ -39,16 +39,23 @@ fastify.get('/health', async (request, reply) => {
   return { status: 'ok', timestamp: new Date() };
 });
 
+// Inicializar servicio de Cron
+const CronService = require('./services/cronService');
+const cronService = new CronService(fastify);
+
 // Iniciar servidor
 const start = async () => {
   try {
     await fastify.listen({ port: PORT, host: '0.0.0.0' });
     console.log(`Server running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    
+    // Iniciar recolector de energía
+    cronService.start();
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
   }
 };
-
+// End of file
 start();
