@@ -9,8 +9,10 @@ export interface MonthData {
     costo: number;
 }
 
-export async function getHistorial(): Promise<MonthData[]> {
-    const res = await fetch(`${API_URL}/historial`);
+export async function getHistorial(usuarioId: number): Promise<MonthData[]> {
+    if (!usuarioId) return [];
+    
+    const res = await fetch(`${API_URL}/historial?usuario_id=${usuarioId}`);
     if (!res.ok) throw new Error('Error al cargar historial');
     const data = await res.json();
 
