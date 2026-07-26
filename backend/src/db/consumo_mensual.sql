@@ -3,5 +3,6 @@ CREATE TABLE consumo_mensual (
   mes VARCHAR(20) NOT NULL,
   anio INT NOT NULL,
   kwh DECIMAL(10,2) NOT NULL,
-  costo DECIMAL(10,2) NOT NULL
+  costo DECIMAL(10,2) NOT NULL,
+  usuario_id INT
 );

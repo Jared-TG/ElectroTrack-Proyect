@@ -6,12 +6,12 @@ import {
     ScrollView,
     TouchableOpacity,
     ActivityIndicator,
-    TextInput,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useHistorial } from '@/app/hooks/useHistorial';
 import { MonthData } from '@/app/services/historialService';
+import DatePickerModal from '@/app/components/DatePickerModal';
 
 const MAX_KWH = 500;
 
@@ -40,7 +40,9 @@ export default function HistorialScreen() {
     const router = useRouter();
     const { months, totalKwh, totalCost, avgKwh, loading, error } = useHistorial();
     const [sortBy, setSortBy] = useState<SortKey>('fecha');
-    const [searchQuery, setSearchQuery] = useState('');
+    const [isDatePickerVisible, setDatePickerVisible] = useState(false);
+    const [filterMonth, setFilterMonth] = useState<string | null>(null);
+    const [filterYear, setFilterYear] = useState<string | null>(null);
 
     if (loading) {
         return (
@@ -65,9 +67,10 @@ export default function HistorialScreen() {
 
     // Filtrar localmente en memoria
     const filteredMonths = months.filter(item => {
-        if (!searchQuery) return true;
-        const query = searchQuery.toLowerCase();
-        return item.mes.toLowerCase().includes(query) || item.anio.toString().includes(query);
+        let match = true;
+        if (filterMonth && item.mes !== filterMonth) match = false;
+        if (filterYear && item.anio.toString() !== filterYear) match = false;
+        return match;
     });
 
     const sortedMonths = sortMonths(filteredMonths, sortBy);
@@ -107,21 +110,15 @@ export default function HistorialScreen() {
                     <Text style={styles.averageValue}>{avgKwh} kWh</Text>
                 </View>
 
-                {/* Months Header + Search */}
-                <View style={styles.monthsHeaderRow}>
-                    <View style={styles.monthsHeader}>
-                        <Ionicons name="calendar-outline" size={20} color="#FFF" />
-                        <Text style={styles.monthsTitle}>Meses</Text>
-                    </View>
-                    <View style={styles.searchContainer}>
-                        <Ionicons name="search" size={16} color="#888" style={styles.searchIcon} />
-                        <TextInput
-                            style={styles.searchInput}
-                            placeholder="Buscar mes o año..."
-                            placeholderTextColor="#666"
-                            value={searchQuery}
-                            onChangeText={setSearchQuery}
-                        />
+                {/* Filters */}
+                <View style={styles.filtersContainer}>
+                    <View style={styles.filterHeader}>
+                        <View style={styles.monthHeader}>
+                            <MaterialCommunityIcons name="calendar-month" size={24} color="#FFF" />
+                            <Text style={styles.monthTitle}>
+                                {filterMonth || filterYear ? `${filterMonth || ''} ${filterYear || ''}`.trim() : 'Meses'}
+                            </Text>
+                        </View>
                     </View>
                 </View>
 
@@ -137,7 +134,12 @@ export default function HistorialScreen() {
                             <TouchableOpacity
                                 key={opt.key}
                                 style={[styles.filterChip, active && styles.filterChipActive]}
-                                onPress={() => setSortBy(opt.key)}
+                                onPress={() => {
+                                    setSortBy(opt.key);
+                                    if (opt.key === 'fecha') {
+                                        setDatePickerVisible(true);
+                                    }
+                                }}
                                 activeOpacity={0.7}
                             >
                                 <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
@@ -174,7 +176,19 @@ export default function HistorialScreen() {
                         </View>
                     </View>
                 ))}
+                {/* Bottom padding for scrolling */}
+                <View style={{ height: 100 }} />
             </ScrollView>
+
+            {/* Modal Date Picker */}
+            <DatePickerModal
+                visible={isDatePickerVisible}
+                onClose={() => setDatePickerVisible(false)}
+                onSelect={(month, year) => {
+                    setFilterMonth(month);
+                    setFilterYear(year);
+                }}
+            />
         </View>
     );
 }
@@ -266,40 +280,21 @@ const styles = StyleSheet.create({
         color: '#FFF',
     },
     // Months Section
-    monthsHeaderRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
+    filtersContainer: {
         paddingHorizontal: 20,
         marginBottom: 12,
-        justifyContent: 'space-between',
     },
-    monthsHeader: {
+    filterHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    monthHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
     },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#1A1A1A',
-        borderRadius: 8,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderWidth: 1,
-        borderColor: '#333',
-        width: 180,
-    },
-    searchIcon: {
-        marginRight: 6,
-    },
-    searchInput: {
-        flex: 1,
-        color: '#FFF',
-        fontSize: 14,
-        fontFamily: 'Inter_400Regular',
-        padding: 0, // override default padding on Android
-    },
-    monthsTitle: {
+    monthTitle: {
         fontSize: 16,
         fontFamily: 'Inter_600SemiBold',
         color: '#FFF',

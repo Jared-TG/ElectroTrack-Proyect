@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -6,7 +6,6 @@ import {
     ScrollView,
     TouchableOpacity,
     Switch,
-    Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -15,6 +14,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useDispositivos } from '@/app/hooks/useDispositivos';
 import { API_URL } from '@/app/config/api.config';
 import ConfirmRelayModal from '@/app/components/ConfirmRelayModal';
+import { costoEstimadoFormateado } from '@/app/utils/tarifaCFE';
 
 export default function HomeScreen() {
     const { user } = useAuth();
@@ -26,6 +26,11 @@ export default function HomeScreen() {
     const [toggles, setToggles] = useState<Record<number, boolean>>({});
     const [confirmModalVisible, setConfirmModalVisible] = useState(false);
     const [pendingToggle, setPendingToggle] = useState<{deviceId: number, deviceName: string, deviceQrCode: string, newState: boolean} | null>(null);
+
+    // Datos en tiempo real del dashboard-summary
+    const [liveTotalWatts, setLiveTotalWatts] = useState(0);
+    const [deviceWatts, setDeviceWatts] = useState<Record<number, number>>({});
+    const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // Inicializar toggles cuando cambian los dispositivos
     useEffect(() => {
@@ -40,32 +45,45 @@ export default function HomeScreen() {
         });
     }, [devices]);
 
+    // Polling para datos en tiempo real del dashboard
+    const fetchDashboardSummary = useCallback(async () => {
+        try {
+            const url = user?.id
+                ? `${API_URL}/dispositivos/dashboard-summary?usuario_id=${user.id}`
+                : `${API_URL}/dispositivos/dashboard-summary`;
+            const res = await fetch(url);
+            if (!res.ok) return;
+            const data = await res.json();
+
+            setLiveTotalWatts(data.totalWatts || 0);
+
+            // Mapear watts por device id
+            const wattsMap: Record<number, number> = {};
+            (data.devices || []).forEach((d: any) => {
+                wattsMap[d.id] = d.watts || 0;
+            });
+            setDeviceWatts(wattsMap);
+        } catch (e) {
+            console.warn('[Dashboard] Error al obtener resumen:', e);
+        }
+    }, [user?.id]);
+
     useFocusEffect(
         useCallback(() => {
             refresh();
-        }, [refresh])
+            fetchDashboardSummary();
+
+            // Polling cada 3 segundos
+            pollRef.current = setInterval(fetchDashboardSummary, 3000);
+
+            return () => {
+                if (pollRef.current) clearInterval(pollRef.current);
+            };
+        }, [refresh, fetchDashboardSummary])
     );
-    //esto es de modo de pruba sera borrado despues
-    // Calcular consumo base total de dispositivos encendidos
-    const baseTotalWatts = devices.reduce((sum, device) => {
-        const isOn = toggles[device.id] ?? true;
-        // Si el dispositivo tiene 0 watts en la BD, le asignamos 40W base por defecto para la demo
-        const wattsToAdd = (device.watts && device.watts > 0) ? device.watts : 40;
-        return isOn ? sum + wattsToAdd : sum;
-    }, 0);
 
-    const [liveTotalWatts, setLiveTotalWatts] = useState(baseTotalWatts);
-
-    // Por ahora, mostrar solo la suma base sin simulación
-    useEffect(() => {
-        setLiveTotalWatts(baseTotalWatts);
-    }, [baseTotalWatts]);
-
-    // Calcular costo estimado (ejemplo: $0.35 MXN por kWh) usando consumo base para estabilidad
-    const kwhCost = 0.35;
-    const hoursPerMonth = 720; // 30 días x 24 horas
-    const monthlyKwh = (baseTotalWatts / 1000) * hoursPerMonth;
-    const estimatedCost = `$${Math.round(monthlyKwh * kwhCost)} MXN`;
+    // Costo estimado usando tarifa CFE de México
+    const estimatedCost = costoEstimadoFormateado(liveTotalWatts);
 
     const toggleDevice = (deviceId: number, deviceName: string, deviceQrCode: string) => {
         const currentState = toggles[deviceId] ?? true;
@@ -180,7 +198,9 @@ export default function HomeScreen() {
                                         <View style={styles.deviceInfo}>
                                             <Text style={styles.deviceName}>{device.nombre}</Text>
                                             <Text style={styles.deviceWatts}>
-                                                {(device.watts && device.watts > 0) ? device.watts : 40}w
+                                                {deviceWatts[device.id] != null && deviceWatts[device.id] > 0
+                                                    ? `${deviceWatts[device.id].toFixed(1)}w`
+                                                    : '0w'}
                                             </Text>
                                         </View>
                                         <Ionicons name="chevron-forward" size={20} color="#555" />

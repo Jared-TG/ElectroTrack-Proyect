@@ -17,6 +17,56 @@ module.exports = async function (fastify) {
   });
 
   // ============================================================
+  // GET /dispositivos/dashboard-summary — resumen en tiempo real de todos los dispositivos
+  // Consulta cada ESP32 en paralelo y devuelve watts por dispositivo + total
+  // ============================================================
+  fastify.get('/dispositivos/dashboard-summary', async (request, reply) => {
+    const { usuario_id } = request.query;
+    let query = 'SELECT id, nombre, qr_code, ip_local, icono, watts as db_watts FROM dispositivos';
+    const params = [];
+    if (usuario_id) {
+      query += ' WHERE usuario_id = ?';
+      params.push(usuario_id);
+    }
+    const [devices] = await fastify.mysql.query(query, params);
+
+    // Consultar cada ESP32 en paralelo (con timeout de 3 seg para no bloquear)
+    const results = await Promise.allSettled(
+      devices.map(async (device) => {
+        if (!device.ip_local) {
+          return { id: device.id, qr_code: device.qr_code, watts: 0, kwh_total: 0, online: false };
+        }
+        try {
+          const res = await fetch(`http://${device.ip_local}/api/status`, {
+            signal: AbortSignal.timeout(3000),
+          });
+          if (!res.ok) throw new Error('ESP error');
+          const d = await res.json();
+          return {
+            id: device.id,
+            qr_code: device.qr_code,
+            watts: d.power || 0,
+            kwh_total: d.energy || 0,
+            online: true,
+          };
+        } catch {
+          return { id: device.id, qr_code: device.qr_code, watts: 0, kwh_total: 0, online: false };
+        }
+      })
+    );
+
+    const deviceData = results.map(r => r.status === 'fulfilled' ? r.value : { watts: 0, kwh_total: 0, online: false });
+    const totalWatts = deviceData.reduce((sum, d) => sum + d.watts, 0);
+    const totalKwh = deviceData.reduce((sum, d) => sum + d.kwh_total, 0);
+
+    return {
+      totalWatts,
+      totalKwh,
+      devices: deviceData,
+    };
+  });
+
+  // ============================================================
   // GET /dispositivos/qr/:qr_code — buscar por código QR (MAC)
   // ============================================================
   fastify.get('/dispositivos/qr/:qr_code', async (request, reply) => {
@@ -211,6 +261,8 @@ module.exports = async function (fastify) {
       });
     }
   });
+
+
 
   // ============================================================
   // POST /dispositivos/:id/relay — controlar relé via proxy

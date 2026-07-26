@@ -65,7 +65,7 @@ export default function CircularMeter({ currentWatts, maxWatts, estimatedCost }:
 
         {/* Texto central */}
         <View style={styles.centerContent}>
-          <Text style={styles.wattsText}>{currentWatts}</Text>
+          <Text style={styles.wattsText}>{Number(currentWatts).toFixed(1)}</Text>
           <Text style={styles.wattsLabel}>w</Text>
           <Text style={styles.usageLabel}>Uso actual</Text>
         </View>

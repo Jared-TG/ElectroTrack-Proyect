@@ -249,6 +249,7 @@ export default function DispositivosScreen() {
                 onClose={() => setBleModalVisible(false)} 
                 onSuccess={handleBLESuccess} 
             />
+
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 {/* Header */}
                 <View style={styles.header}>

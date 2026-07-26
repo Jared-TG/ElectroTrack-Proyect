@@ -20,6 +20,7 @@ import { useAlert } from '@/app/context/AlertContext';
 import BLESetupModal from '@/app/components/BLESetupModal';
 import OnlineWiFiModal from '@/app/components/OnlineWiFiModal';
 import ConfirmRelayModal from '@/app/components/ConfirmRelayModal';
+import ConfirmDeleteModal from '@/app/components/ConfirmDeleteModal';
 
 const DEVICE_ICONS = [
     { key: 'tv', label: 'TV', component: (color: string) => <Ionicons name="tv-outline" size={26} color={color} /> },
@@ -74,6 +75,7 @@ export default function DeviceDetailScreen() {
     const [onlineWifiModalVisible, setOnlineWifiModalVisible] = useState(false);
     const [confirmModalVisible, setConfirmModalVisible] = useState(false);
     const [pendingState, setPendingState] = useState(false);
+    const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
     const [isOn, setIsOn] = useState(true);
     const [chartData, setChartData] = useState<DataPoint[]>([]);
@@ -197,6 +199,25 @@ export default function DeviceDetailScreen() {
         }
     };
 
+    const confirmDeleteDevice = () => {
+        setDeleteModalVisible(true);
+    };
+
+    const executeDelete = async () => {
+        try {
+            const res = await fetch(`${API_URL}/dispositivos/${id}`, {
+                method: 'DELETE',
+            });
+            if (!res.ok) throw new Error('Error al eliminar');
+            
+            showAlert({ type: 'success', title: 'Eliminado', message: 'El dispositivo ha sido eliminado correctamente.' });
+            router.back();
+        } catch (e) {
+            console.error('[Delete] Error:', e);
+            showAlert({ type: 'error', title: 'Error', message: 'No se pudo eliminar el dispositivo.' });
+        }
+    };
+
     return (
         <View style={styles.container}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -206,13 +227,18 @@ export default function DeviceDetailScreen() {
                         <Ionicons name="arrow-back" size={24} color="#FFD700" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>ELECTROTRACK</Text>
-                    <TouchableOpacity onPress={() => {
-                        setEditNombre(displayNombre);
-                        setEditIcono(displayIcono);
-                        setEditModalVisible(true);
-                    }} style={styles.backButton}>
-                        <Ionicons name="create-outline" size={24} color="#FFD700" />
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <TouchableOpacity onPress={confirmDeleteDevice} style={[styles.backButton, { marginRight: 15 }]}>
+                            <Ionicons name="trash-outline" size={24} color="#FF4444" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => {
+                            setEditNombre(displayNombre);
+                            setEditIcono(displayIcono);
+                            setEditModalVisible(true);
+                        }} style={styles.backButton}>
+                            <Ionicons name="create-outline" size={24} color="#FFD700" />
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* Section Title */}
@@ -340,6 +366,13 @@ export default function DeviceDetailScreen() {
                 onConfirm={executeToggle}
                 deviceName={displayNombre}
                 isTurningOn={pendingState}
+            />
+
+            <ConfirmDeleteModal
+                visible={deleteModalVisible}
+                onClose={() => setDeleteModalVisible(false)}
+                onConfirm={executeDelete}
+                deviceName={displayNombre}
             />
 
             <Modal
