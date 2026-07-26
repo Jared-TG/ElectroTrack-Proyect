@@ -6,6 +6,7 @@ import {
     ScrollView,
     TouchableOpacity,
     ActivityIndicator,
+    RefreshControl,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -38,11 +39,18 @@ function sortMonths(months: MonthData[], sortBy: SortKey): MonthData[] {
 
 export default function HistorialScreen() {
     const router = useRouter();
-    const { months, totalKwh, totalCost, avgKwh, loading, error } = useHistorial();
+    const { months, totalKwh, totalCost, avgKwh, loading, error, refetch } = useHistorial();
     const [sortBy, setSortBy] = useState<SortKey>('fecha');
     const [isDatePickerVisible, setDatePickerVisible] = useState(false);
     const [filterMonth, setFilterMonth] = useState<string | null>(null);
     const [filterYear, setFilterYear] = useState<string | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        if (refetch) await refetch();
+        setRefreshing(false);
+    };
 
     if (loading) {
         return (
@@ -77,7 +85,18 @@ export default function HistorialScreen() {
 
     return (
         <View style={styles.container}>
-            <ScrollView contentContainerStyle={styles.scrollContent}>
+            <ScrollView 
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={
+                    <RefreshControl 
+                        refreshing={refreshing} 
+                        onRefresh={onRefresh} 
+                        tintColor="#FFD700"
+                        colors={['#FFD700']} 
+                        progressBackgroundColor="#1A1A1A"
+                    />
+                }
+            >
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
