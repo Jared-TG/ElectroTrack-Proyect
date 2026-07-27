@@ -3,7 +3,7 @@ module.exports = async function (fastify) {
     fastify.get('/usuarios/:id/preferencias', async (request, reply) => {
         const { id } = request.params;
         const [rows] = await fastify.mysql.query(
-            'SELECT notif_activas, notif_alto_consumo, limite_alto_consumo_watts, actualizacion_automatica FROM usuarios WHERE id = ?',
+            'SELECT notif_activas, notif_alto_consumo, limite_alto_consumo_watts, actualizacion_automatica, tarifa_actual FROM usuarios WHERE id = ?',
             [id]
         );
         if (rows.length === 0) {
@@ -15,7 +15,7 @@ module.exports = async function (fastify) {
     // PUT /usuarios/:id/preferencias
     fastify.put('/usuarios/:id/preferencias', async (request, reply) => {
         const { id } = request.params;
-        const { notif_activas, notif_alto_consumo, limite_alto_consumo_watts, actualizacion_automatica } = request.body;
+        const { notif_activas, notif_alto_consumo, limite_alto_consumo_watts, actualizacion_automatica, tarifa_actual } = request.body;
 
         try {
             await fastify.mysql.query(
@@ -23,9 +23,10 @@ module.exports = async function (fastify) {
                  SET notif_activas = COALESCE(?, notif_activas),
                      notif_alto_consumo = COALESCE(?, notif_alto_consumo),
                      limite_alto_consumo_watts = COALESCE(?, limite_alto_consumo_watts),
-                     actualizacion_automatica = COALESCE(?, actualizacion_automatica)
+                     actualizacion_automatica = COALESCE(?, actualizacion_automatica),
+                     tarifa_actual = COALESCE(?, tarifa_actual)
                  WHERE id = ?`,
-                [notif_activas, notif_alto_consumo, limite_alto_consumo_watts, actualizacion_automatica, id]
+                [notif_activas, notif_alto_consumo, limite_alto_consumo_watts, actualizacion_automatica, tarifa_actual, id]
             );
             return reply.status(200).send({ message: 'Preferencias actualizadas' });
         } catch (error) {

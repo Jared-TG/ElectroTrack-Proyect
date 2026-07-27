@@ -18,11 +18,13 @@ import { API_URL } from '@/app/config/api.config';
 import ConfirmRelayModal from '@/app/components/ConfirmRelayModal';
 import { costoEstimadoFormateado } from '@/app/utils/tarifaCFE';
 import { useNotificaciones } from '@/app/hooks/useNotificaciones';
+import { usePreferencias } from '@/app/hooks/usePreferencias';
 
 export default function HomeScreen() {
     const { user } = useAuth();
     const router = useRouter();
     const { dispositivos: devices, refresh } = useDispositivos();
+    const { preferencias } = usePreferencias();
 
     // Para simplificar la demo, mantendremos un estado local de encendido/apagado para los interruptores
     // En el sistema real esto debería venir del dispositivo (estado 'en_linea' o similar) y enviar comandos por WiFi
@@ -100,8 +102,8 @@ export default function HomeScreen() {
         }, [refresh, fetchDashboardSummary])
     );
 
-    // Costo estimado usando tarifa CFE de México
-    const estimatedCost = costoEstimadoFormateado(liveTotalWatts);
+    // Costo estimado usando tarifa CFE de México (aplicando la tarifa seleccionada por el usuario para el dashboard)
+    const estimatedCost = costoEstimadoFormateado(liveTotalWatts, preferencias?.tarifa_actual || 'basico');
 
     const toggleDevice = (deviceId: number, deviceName: string, deviceQrCode: string) => {
         const currentState = toggles[deviceId] ?? true;

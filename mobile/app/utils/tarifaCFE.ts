@@ -72,11 +72,23 @@ export function estimarKwhMensual(wattsActuales: number): number {
 
 /**
  * Devuelve el costo formateado como string en MXN.
+ * Si se provee una tarifa, se calcula el costo usando exclusivamente esa tarifa.
  * @param wattsActuales - Potencia instantánea total en watts
+ * @param tarifa - Opcional. Escalón ('basico', 'intermedio', 'excedente')
  * @returns String formateado ej: "$225 MXN"
  */
-export function costoEstimadoFormateado(wattsActuales: number): string {
+export function costoEstimadoFormateado(wattsActuales: number, tarifa?: string): string {
   const kwhMensual = estimarKwhMensual(wattsActuales);
+  
+  if (tarifa) {
+    let precioKwh = TARIFA.basico;
+    if (tarifa === 'intermedio') precioKwh = 1.61; // Promedio intermedio
+    if (tarifa === 'excedente') precioKwh = TARIFA.excedente;
+
+    const costoPlano = kwhMensual * precioKwh * (1 + TARIFA.iva);
+    return `$${Math.round(costoPlano)} MXN`;
+  }
+
   const costo = calcularCostoCFE(kwhMensual);
   return `$${Math.round(costo)} MXN`;
 }
