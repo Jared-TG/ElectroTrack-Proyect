@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '@/app/config/api.config';
 import { useAuth } from '@/app/context/AuthContext';
 import { useAlert } from '@/app/context/AlertContext';
@@ -19,6 +20,7 @@ import { useAlert } from '@/app/context/AlertContext';
 export default function LoginScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const { login } = useAuth();
     const { showAlert } = useAlert();
 
@@ -100,14 +102,26 @@ export default function LoginScreen() {
                     {/* Contraseña */}
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Contraseña</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Ingresa tu contraseña"
-                            placeholderTextColor="#666"
-                            value={password}
-                            onChangeText={setPassword}
-                            secureTextEntry
-                        />
+                        <View style={styles.passwordContainer}>
+                            <TextInput
+                                style={styles.passwordInput}
+                                placeholder="Ingresa tu contraseña"
+                                placeholderTextColor="#666"
+                                value={password}
+                                onChangeText={setPassword}
+                                secureTextEntry={!showPassword}
+                            />
+                            <TouchableOpacity 
+                                style={styles.eyeIcon} 
+                                onPress={() => setShowPassword(!showPassword)}
+                            >
+                                <Ionicons 
+                                    name={showPassword ? 'eye-off-outline' : 'eye-outline'} 
+                                    size={24} 
+                                    color="#FFD700" 
+                                />
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
                     {/* Olvidé mi contraseña */}
@@ -201,6 +215,27 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#FFF',
         fontFamily: 'Inter_400Regular',
+    },
+    passwordContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#FFD700',
+        borderRadius: 8,
+        backgroundColor: 'transparent',
+    },
+    passwordInput: {
+        flex: 1,
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+        fontSize: 16,
+        color: '#FFF',
+        fontFamily: 'Inter_400Regular',
+    },
+    eyeIcon: {
+        paddingHorizontal: 15,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     forgotPasswordContainer: {
         alignItems: 'flex-end',
