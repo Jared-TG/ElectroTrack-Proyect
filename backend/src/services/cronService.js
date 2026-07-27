@@ -33,20 +33,80 @@ function calcularCostoCFE(consumoTotalKwh) {
 
 const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
+async function crearNotificacion(fastify, usuarioId, titulo, mensaje) {
+  // Evitar spam: no enviar la misma alerta (mismo título) si se envió hace menos de 1 hora
+  const [recent] = await fastify.mysql.query(
+    "SELECT id FROM notificaciones WHERE usuario_id = ? AND titulo = ? AND fecha >= NOW() - INTERVAL 1 HOUR",
+    [usuarioId, titulo]
+  );
+  if (recent.length === 0) {
+    await fastify.mysql.query(
+      "INSERT INTO notificaciones (usuario_id, titulo, mensaje) VALUES (?, ?, ?)",
+      [usuarioId, titulo, mensaje]
+    );
+  }
+}
+
 class CronService {
   constructor(fastify) {
     this.fastify = fastify;
   }
 
   start() {
-    console.log('[Cron] Inicializando recolector de consumo (cada 5 minutos)...');
-    
-    // Ejecutar cada 5 minutos
+    console.log('[Cron] Inicializando monitores (Health Check 1m, Consumo 5m)...');
+
+    // ----------------------------------------------------
+    // MONITOR DE SALUD (Health Check) - Cada 1 Minuto
+    // ----------------------------------------------------
+    cron.schedule('*/1 * * * *', async () => {
+      try {
+        const [dispositivos] = await this.fastify.mysql.query(
+          `SELECT d.ip_local, d.nombre, d.usuario_id, u.notif_activas
+           FROM dispositivos d 
+           JOIN usuarios u ON d.usuario_id = u.id 
+           WHERE d.ip_local IS NOT NULL AND u.notif_activas = 1`
+        );
+
+        if (!dispositivos || dispositivos.length === 0) return;
+
+        for (const disp of dispositivos) {
+          if (!disp.usuario_id) continue;
+          
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000); // Ping rápido de 2 seg
+            
+            const res = await fetch(`http://${disp.ip_local}/api/status`, { signal: controller.signal });
+            clearTimeout(timeoutId);
+
+            if (!res.ok) throw new Error('Bad Status');
+          } catch (e) {
+            // Falla el ping: Dispositivo fuera de línea
+            await crearNotificacion(
+                this.fastify, 
+                disp.usuario_id, 
+                'Dispositivo Desconectado', 
+                `Se perdió la conexión con tu dispositivo "${disp.nombre}". Verifica que tenga energía y acceso al WiFi.`
+            );
+          }
+        }
+      } catch (err) {
+        console.error('[HealthCheck Error]', err);
+      }
+    });
+
+    // ----------------------------------------------------
+    // RECOLECTOR DE ENERGÍA - Cada 5 Minutos
+    // ----------------------------------------------------
     cron.schedule('*/5 * * * *', async () => {
       try {
         console.log('[Cron] Ejecutando recolección de energía...');
         const [dispositivos] = await this.fastify.mysql.query(
-          'SELECT ip_local, usuario_id FROM dispositivos WHERE ip_local IS NOT NULL'
+          `SELECT d.ip_local, d.nombre, d.usuario_id, 
+                  u.notif_activas, u.notif_alto_consumo, u.limite_alto_consumo_watts, u.actualizacion_automatica 
+           FROM dispositivos d 
+           JOIN usuarios u ON d.usuario_id = u.id 
+           WHERE d.ip_local IS NOT NULL`
         );
 
         if (!dispositivos || dispositivos.length === 0) {
@@ -58,6 +118,9 @@ class CronService {
 
         for (const disp of dispositivos) {
           if (!disp.usuario_id) continue;
+          
+          // Si el usuario desactivó la actualización automática, saltamos este dispositivo
+          if (!disp.actualizacion_automatica) continue;
 
           try {
             // Request data with 5 seconds timeout
@@ -71,6 +134,29 @@ class CronService {
 
             const data = await res.json();
             const watts = data.power || 0;
+            const anomalyDetected = data.anomaly_detected || false;
+
+            // --- Lógica de Notificaciones ---
+            if (disp.notif_activas) {
+                if (anomalyDetected) {
+                    await crearNotificacion(
+                        this.fastify, 
+                        disp.usuario_id, 
+                        'Anomalía Eléctrica', 
+                        `El dispositivo "${disp.nombre}" detectó un comportamiento inusual (consumo fuera de perfil).`
+                    );
+                }
+
+                if (disp.notif_alto_consumo && watts > disp.limite_alto_consumo_watts) {
+                    await crearNotificacion(
+                        this.fastify, 
+                        disp.usuario_id, 
+                        'Alto Consumo', 
+                        `El dispositivo "${disp.nombre}" está consumiendo ${watts.toFixed(1)}W, superando tu límite de ${disp.limite_alto_consumo_watts}W.`
+                    );
+                }
+            }
+            // --------------------------------
 
             if (watts <= 0) continue;
 
@@ -102,7 +188,7 @@ class CronService {
               );
             }
           } catch (e) {
-            // Ignorar dispositivos que no responden
+            // Ignorar dispositivos que no responden, el Health Check de 1 minuto se encarga de esto
           }
         }
       } catch (err) {

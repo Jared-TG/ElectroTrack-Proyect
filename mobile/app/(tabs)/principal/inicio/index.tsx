@@ -6,6 +6,8 @@ import {
     ScrollView,
     TouchableOpacity,
     Switch,
+    Modal,
+    FlatList,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -15,11 +17,14 @@ import { useDispositivos } from '@/app/hooks/useDispositivos';
 import { API_URL } from '@/app/config/api.config';
 import ConfirmRelayModal from '@/app/components/ConfirmRelayModal';
 import { costoEstimadoFormateado } from '@/app/utils/tarifaCFE';
+import { useNotificaciones } from '@/app/hooks/useNotificaciones';
+import { usePreferencias } from '@/app/hooks/usePreferencias';
 
 export default function HomeScreen() {
     const { user } = useAuth();
     const router = useRouter();
     const { dispositivos: devices, refresh } = useDispositivos();
+    const { preferencias } = usePreferencias();
 
     // Para simplificar la demo, mantendremos un estado local de encendido/apagado para los interruptores
     // En el sistema real esto debería venir del dispositivo (estado 'en_linea' o similar) y enviar comandos por WiFi
@@ -27,12 +32,20 @@ export default function HomeScreen() {
     const [confirmModalVisible, setConfirmModalVisible] = useState(false);
     const [pendingToggle, setPendingToggle] = useState<{deviceId: number, deviceName: string, deviceQrCode: string, newState: boolean} | null>(null);
 
-    // Datos en tiempo real del dashboard-summary
     const [liveTotalWatts, setLiveTotalWatts] = useState(0);
     const [deviceWatts, setDeviceWatts] = useState<Record<number, number>>({});
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    // Inicializar toggles cuando cambian los dispositivos
+    // Notifications
+    const { notificaciones, unreadCount, marcarLeidas } = useNotificaciones();
+    const [notifModalVisible, setNotifModalVisible] = useState(false);
+
+    const openNotificaciones = () => {
+        setNotifModalVisible(true);
+        marcarLeidas();
+    };
+
+    // Inicializar toggles cuando cambian los dispositivos (solo la primera vez)
     useEffect(() => {
         setToggles(prev => {
             const newToggles = { ...prev };
@@ -57,12 +70,19 @@ export default function HomeScreen() {
 
             setLiveTotalWatts(data.totalWatts || 0);
 
-            // Mapear watts por device id
+            // Mapear watts y estado del relay por device id
             const wattsMap: Record<number, number> = {};
+            const relayMap: Record<number, boolean> = {};
+            
             (data.devices || []).forEach((d: any) => {
                 wattsMap[d.id] = d.watts || 0;
+                if (d.relay_state !== undefined) {
+                    relayMap[d.id] = d.relay_state;
+                }
             });
+            
             setDeviceWatts(wattsMap);
+            setToggles(prev => ({ ...prev, ...relayMap })); // Sincronizar estado real del relevador
         } catch (e) {
             console.warn('[Dashboard] Error al obtener resumen:', e);
         }
@@ -82,8 +102,8 @@ export default function HomeScreen() {
         }, [refresh, fetchDashboardSummary])
     );
 
-    // Costo estimado usando tarifa CFE de México
-    const estimatedCost = costoEstimadoFormateado(liveTotalWatts);
+    // Costo estimado usando tarifa CFE de México (aplicando la tarifa seleccionada por el usuario para el dashboard)
+    const estimatedCost = costoEstimadoFormateado(liveTotalWatts, preferencias?.tarifa_actual || 'basico');
 
     const toggleDevice = (deviceId: number, deviceName: string, deviceQrCode: string) => {
         const currentState = toggles[deviceId] ?? true;
@@ -147,8 +167,13 @@ export default function HomeScreen() {
                     <Text style={styles.welcomeText}>
                         Bienvenido, {user?.nombre_usuario || 'Usuario'}
                     </Text>
-                    <TouchableOpacity>
+                    <TouchableOpacity onPress={openNotificaciones} style={styles.bellContainer}>
                         <Ionicons name="notifications-outline" size={28} color="#FFF" />
+                        {unreadCount > 0 && (
+                            <View style={styles.badge}>
+                                <Text style={styles.badgeText}>{unreadCount}</Text>
+                            </View>
+                        )}
                     </TouchableOpacity>
                 </View>
 
@@ -228,6 +253,53 @@ export default function HomeScreen() {
                 deviceName={pendingToggle?.deviceName || ''}
                 isTurningOn={pendingToggle?.newState || false}
             />
+
+            {/* Notifications Modal */}
+            <Modal
+                visible={notifModalVisible}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setNotifModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Notificaciones</Text>
+                            <TouchableOpacity onPress={() => setNotifModalVisible(false)}>
+                                <Ionicons name="close" size={24} color="#FFF" />
+                            </TouchableOpacity>
+                        </View>
+                        {notificaciones.length === 0 ? (
+                            <Text style={styles.emptyNotifText}>No tienes notificaciones.</Text>
+                        ) : (
+                            <FlatList
+                                data={notificaciones}
+                                keyExtractor={(item) => item.id.toString()}
+                                renderItem={({ item }) => (
+                                    <View style={[styles.notifItem, item.leida === 0 && styles.notifItemUnread]}>
+                                        <View style={styles.notifIconContainer}>
+                                            <Ionicons 
+                                                name={item.titulo.includes('Alto') ? 'warning-outline' : 'flash-outline'} 
+                                                size={24} 
+                                                color="#FFD700" 
+                                            />
+                                        </View>
+                                        <View style={styles.notifTextContainer}>
+                                            <Text style={styles.notifTitle}>{item.titulo}</Text>
+                                            <Text style={styles.notifMessage}>{item.mensaje}</Text>
+                                            <Text style={styles.notifDate}>
+                                                {new Date(item.fecha).toLocaleString('es-MX', {
+                                                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                                                })}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                )}
+                            />
+                        )}
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -252,6 +324,29 @@ const styles = StyleSheet.create({
         fontSize: 18,
         color: '#FFF',
         fontFamily: 'Inter_500Medium',
+    },
+    bellContainer: {
+        position: 'relative',
+        padding: 4,
+    },
+    badge: {
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        backgroundColor: '#FF4444',
+        borderRadius: 10,
+        minWidth: 18,
+        height: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1.5,
+        borderColor: '#000',
+    },
+    badgeText: {
+        color: '#FFF',
+        fontSize: 10,
+        fontFamily: 'Inter_700Bold',
+        paddingHorizontal: 2,
     },
     devicesSection: {
         paddingHorizontal: 20,
@@ -298,6 +393,75 @@ const styles = StyleSheet.create({
     deviceWatts: {
         fontSize: 13,
         color: '#888',
+        fontFamily: 'Inter_400Regular',
+    },
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: '#111',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        padding: 20,
+        maxHeight: '80%',
+        minHeight: '50%',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontFamily: 'Inter_700Bold',
+        color: '#FFF',
+    },
+    emptyNotifText: {
+        color: '#888',
+        textAlign: 'center',
+        marginTop: 40,
+        fontFamily: 'Inter_400Regular',
+    },
+    notifItem: {
+        flexDirection: 'row',
+        backgroundColor: '#1A1A1A',
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#333',
+    },
+    notifItemUnread: {
+        borderColor: '#FFD700',
+        backgroundColor: '#2A2200',
+    },
+    notifIconContainer: {
+        marginRight: 16,
+        justifyContent: 'center',
+    },
+    notifTextContainer: {
+        flex: 1,
+    },
+    notifTitle: {
+        color: '#FFF',
+        fontSize: 16,
+        fontFamily: 'Inter_600SemiBold',
+        marginBottom: 4,
+    },
+    notifMessage: {
+        color: '#BBB',
+        fontSize: 14,
+        fontFamily: 'Inter_400Regular',
+        lineHeight: 20,
+    },
+    notifDate: {
+        color: '#666',
+        fontSize: 12,
+        marginTop: 8,
         fontFamily: 'Inter_400Regular',
     },
 });

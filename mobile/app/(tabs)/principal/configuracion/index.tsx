@@ -6,20 +6,57 @@ import {
     ScrollView,
     TouchableOpacity,
     Switch,
+    ActivityIndicator,
+    Modal,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/app/context/AuthContext';
+import { usePreferencias } from '@/app/hooks/usePreferencias';
+
+const TARIFAS: Record<string, { label: string, desc: string }> = {
+    'basico': { label: 'Básica', desc: '$0.75 por kWh' },
+    'intermedio': { label: 'Intermedia', desc: 'Promedio $1.61 por kWh' },
+    'excedente': { label: 'Excedente', desc: '$3.60 por kWh' }
+};
 
 export default function ConfiguracionScreen() {
     const router = useRouter();
     const { logout } = useAuth();
+    const { preferencias, loading, updatePreferencia } = usePreferencias();
 
-    // Toggle states
-    const [notificaciones, setNotificaciones] = useState(true);
-    const [alertaConsumo, setAlertaConsumo] = useState(true);
-    const [autoUpdate, setAutoUpdate] = useState(false);
-    const [modoAhorro, setModoAhorro] = useState(false);
+    const [autoUpdateModalVisible, setAutoUpdateModalVisible] = useState(false);
+    const [tarifaModalVisible, setTarifaModalVisible] = useState(false);
+
+    const handleAutoUpdateToggle = (value: boolean) => {
+        if (!value) {
+            setAutoUpdateModalVisible(true);
+        } else {
+            updatePreferencia('actualizacion_automatica', true);
+        }
+    };
+
+    const confirmAutoUpdateDisable = () => {
+        setAutoUpdateModalVisible(false);
+        updatePreferencia('actualizacion_automatica', false);
+    };
+
+    const handleTarifaSelect = () => {
+        setTarifaModalVisible(true);
+    };
+
+    const selectTarifa = (tarifa: string) => {
+        updatePreferencia('tarifa_actual', tarifa);
+        setTarifaModalVisible(false);
+    };
+
+    if (loading || !preferencias) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color="#FFD700" />
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -49,10 +86,10 @@ export default function ConfiguracionScreen() {
                             <Text style={styles.settingDesc}>Recibe alertas del la notificacion</Text>
                         </View>
                         <View style={styles.toggleContainer}>
-                            <Text style={styles.toggleLabel}>{notificaciones ? 'ON' : 'OFF'}</Text>
+                            <Text style={styles.toggleLabel}>{preferencias.notif_activas ? 'ON' : 'OFF'}</Text>
                             <Switch
-                                value={notificaciones}
-                                onValueChange={setNotificaciones}
+                                value={preferencias.notif_activas}
+                                onValueChange={(val) => updatePreferencia('notif_activas', val)}
                                 trackColor={{ false: '#333', true: '#FFD700' }}
                                 thumbColor="#FFF"
                                 ios_backgroundColor="#333"
@@ -68,10 +105,10 @@ export default function ConfiguracionScreen() {
                             <Text style={styles.settingDesc}>Recibe alerta por un alto consumo</Text>
                         </View>
                         <View style={styles.toggleContainer}>
-                            <Text style={styles.toggleLabel}>{alertaConsumo ? 'ON' : 'OFF'}</Text>
+                            <Text style={styles.toggleLabel}>{preferencias.notif_alto_consumo ? 'ON' : 'OFF'}</Text>
                             <Switch
-                                value={alertaConsumo}
-                                onValueChange={setAlertaConsumo}
+                                value={preferencias.notif_alto_consumo}
+                                onValueChange={(val) => updatePreferencia('notif_alto_consumo', val)}
                                 trackColor={{ false: '#333', true: '#FFD700' }}
                                 thumbColor="#FFF"
                                 ios_backgroundColor="#333"
@@ -93,61 +130,18 @@ export default function ConfiguracionScreen() {
                             <Text style={styles.settingDesc}>Refrescar cada 5 minutos</Text>
                         </View>
                         <View style={styles.toggleContainer}>
-                            <Text style={styles.toggleLabelOff}>{autoUpdate ? 'ON' : 'OFF'}</Text>
+                            <Text style={preferencias.actualizacion_automatica ? styles.toggleLabel : styles.toggleLabelOff}>
+                                {preferencias.actualizacion_automatica ? 'ON' : 'OFF'}
+                            </Text>
                             <Switch
-                                value={autoUpdate}
-                                onValueChange={setAutoUpdate}
+                                value={preferencias.actualizacion_automatica}
+                                onValueChange={handleAutoUpdateToggle}
                                 trackColor={{ false: '#333', true: '#FFD700' }}
                                 thumbColor="#FFF"
                                 ios_backgroundColor="#333"
                             />
                         </View>
                     </View>
-
-                    <View style={styles.divider} />
-
-                    <View style={styles.settingRow}>
-                        <View style={styles.settingInfo}>
-                            <Text style={styles.settingName}>Modo ahorro de energia</Text>
-                            <Text style={styles.settingDesc}>Reduce el consumo de energia</Text>
-                        </View>
-                        <View style={styles.toggleContainer}>
-                            <Text style={styles.toggleLabelOff}>{modoAhorro ? 'ON' : 'OFF'}</Text>
-                            <Switch
-                                value={modoAhorro}
-                                onValueChange={setModoAhorro}
-                                trackColor={{ false: '#333', true: '#FFD700' }}
-                                thumbColor="#FFF"
-                                ios_backgroundColor="#333"
-                            />
-                        </View>
-                    </View>
-                </View>
-
-                {/* Preferencias */}
-                <View style={styles.card}>
-                    <View style={styles.cardHeader}>
-                        <Ionicons name="globe-outline" size={20} color="#FFD700" />
-                        <Text style={styles.cardTitle}>Preferencias</Text>
-                    </View>
-
-                    <TouchableOpacity style={styles.navRow}>
-                        <View>
-                            <Text style={styles.settingName}>Idioma</Text>
-                            <Text style={styles.settingDesc}>Español</Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={22} color="#666" />
-                    </TouchableOpacity>
-
-                    <View style={styles.divider} />
-
-                    <TouchableOpacity style={styles.navRow}>
-                        <View>
-                            <Text style={styles.settingName}>Unidades</Text>
-                            <Text style={styles.settingDesc}>Watts, kWh</Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={22} color="#666" />
-                    </TouchableOpacity>
                 </View>
 
                 {/* Facturación */}
@@ -157,22 +151,15 @@ export default function ConfiguracionScreen() {
                         <Text style={styles.cardTitle}>Facturacion</Text>
                     </View>
 
-                    <TouchableOpacity style={styles.navRow}>
+                    <TouchableOpacity style={styles.navRow} onPress={handleTarifaSelect}>
                         <View>
-                            <Text style={styles.settingName}>Ratio electrico</Text>
-                            <Text style={styles.settingDesc}>$0.15 per kWh</Text>
+                            <Text style={styles.settingName}>Tarifa CFE</Text>
+                            <Text style={styles.settingDesc}>{TARIFAS[preferencias.tarifa_actual]?.desc || TARIFAS['basico'].desc}</Text>
                         </View>
-                        <Ionicons name="chevron-forward" size={22} color="#666" />
-                    </TouchableOpacity>
-
-                    <View style={styles.divider} />
-
-                    <TouchableOpacity style={styles.navRow}>
-                        <View>
-                            <Text style={styles.settingName}>Ciclo de gastos</Text>
-                            <Text style={styles.settingDesc}>Mensual</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text style={{ color: '#FFD700', fontSize: 14 }}>{TARIFAS[preferencias.tarifa_actual]?.label || 'Básica'}</Text>
+                            <Ionicons name="chevron-forward" size={22} color="#666" />
                         </View>
-                        <Ionicons name="chevron-forward" size={22} color="#666" />
                     </TouchableOpacity>
                 </View>
 
@@ -212,6 +199,60 @@ export default function ConfiguracionScreen() {
                 </TouchableOpacity>
 
             </ScrollView>
+
+            {/* Custom Modal for Auto Update Warning */}
+            <Modal visible={autoUpdateModalVisible} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalIconContainer}>
+                            <Ionicons name="warning" size={32} color="#FFD700" />
+                        </View>
+                        <Text style={styles.modalTitle}>Advertencia</Text>
+                        <Text style={styles.modalText}>
+                            Si desactivas la actualización automática, dejarás de recibir lecturas continuas y no se guardará el historial correctamente. ¿Estás seguro?
+                        </Text>
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setAutoUpdateModalVisible(false)}>
+                                <Text style={styles.modalBtnCancelText}>Cancelar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.modalBtnConfirm} onPress={confirmAutoUpdateDisable}>
+                                <Text style={styles.modalBtnConfirmText}>Desactivar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Custom Modal for Tariff Selection */}
+            <Modal visible={tarifaModalVisible} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Tarifa CFE</Text>
+                        <Text style={styles.modalText}>Selecciona tu escalón actual:</Text>
+                        
+                        {Object.entries(TARIFAS).map(([key, info]) => (
+                            <TouchableOpacity
+                                key={key}
+                                style={[styles.tarifaOption, preferencias.tarifa_actual === key && styles.tarifaOptionSelected]}
+                                onPress={() => selectTarifa(key)}
+                            >
+                                <View style={styles.tarifaOptionLeft}>
+                                    <View style={[styles.radioCircle, preferencias.tarifa_actual === key && styles.radioCircleSelected]}>
+                                        {preferencias.tarifa_actual === key && <View style={styles.radioInner} />}
+                                    </View>
+                                    <Text style={styles.tarifaOptionText}>{info.label}</Text>
+                                </View>
+                                <Text style={styles.tarifaOptionDesc}>{info.desc}</Text>
+                            </TouchableOpacity>
+                        ))}
+
+                        <TouchableOpacity style={styles.tarifaCloseBtn} onPress={() => setTarifaModalVisible(false)}>
+                            <Text style={styles.tarifaCloseBtnText}>Cerrar</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
         </View>
     );
 }
@@ -335,5 +376,131 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontFamily: 'Inter_700Bold',
         color: '#FFF',
+    },
+    // Modals
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    modalContent: {
+        backgroundColor: '#1A1A1A',
+        borderRadius: 16,
+        padding: 24,
+        width: '100%',
+        maxWidth: 400,
+        borderWidth: 1,
+        borderColor: '#333',
+    },
+    modalIconContainer: {
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontFamily: 'Inter_700Bold',
+        color: '#FFF',
+        marginBottom: 12,
+        textAlign: 'center',
+    },
+    modalText: {
+        fontSize: 14,
+        fontFamily: 'Inter_400Regular',
+        color: '#BBB',
+        textAlign: 'center',
+        marginBottom: 24,
+        lineHeight: 20,
+    },
+    modalButtons: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    modalBtnCancel: {
+        flex: 1,
+        paddingVertical: 14,
+        backgroundColor: '#333',
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    modalBtnCancelText: {
+        color: '#FFF',
+        fontFamily: 'Inter_600SemiBold',
+        fontSize: 15,
+    },
+    modalBtnConfirm: {
+        flex: 1,
+        paddingVertical: 14,
+        backgroundColor: '#FF4444',
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    modalBtnConfirmText: {
+        color: '#FFF',
+        fontFamily: 'Inter_700Bold',
+        fontSize: 15,
+    },
+    // Tariff Modal
+    tarifaOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 16,
+        paddingHorizontal: 12,
+        backgroundColor: '#222',
+        borderRadius: 8,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: '#333',
+    },
+    tarifaOptionSelected: {
+        borderColor: '#FFD700',
+        backgroundColor: '#2A2200',
+    },
+    tarifaOptionLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    radioCircle: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        borderWidth: 2,
+        borderColor: '#666',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    radioCircleSelected: {
+        borderColor: '#FFD700',
+    },
+    radioInner: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: '#FFD700',
+    },
+    tarifaOptionText: {
+        color: '#FFF',
+        fontFamily: 'Inter_600SemiBold',
+        fontSize: 15,
+    },
+    tarifaOptionDesc: {
+        color: '#AAA',
+        fontFamily: 'Inter_400Regular',
+        fontSize: 12,
+    },
+    tarifaCloseBtn: {
+        marginTop: 16,
+        paddingVertical: 14,
+        backgroundColor: '#333',
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    tarifaCloseBtnText: {
+        color: '#FFF',
+        fontFamily: 'Inter_600SemiBold',
+        fontSize: 15,
     },
 });
