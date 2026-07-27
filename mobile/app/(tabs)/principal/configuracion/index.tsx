@@ -6,20 +6,41 @@ import {
     ScrollView,
     TouchableOpacity,
     Switch,
+    Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/app/context/AuthContext';
+import { usePreferencias } from '@/app/hooks/usePreferencias';
 
 export default function ConfiguracionScreen() {
     const router = useRouter();
     const { logout } = useAuth();
+    const { preferencias, loading, updatePreferencia } = usePreferencias();
 
-    // Toggle states
-    const [notificaciones, setNotificaciones] = useState(true);
-    const [alertaConsumo, setAlertaConsumo] = useState(true);
-    const [autoUpdate, setAutoUpdate] = useState(false);
-    const [modoAhorro, setModoAhorro] = useState(false);
+    const handleAutoUpdateToggle = (value: boolean) => {
+        if (!value) {
+            Alert.alert(
+                "Advertencia",
+                "Si desactivas la actualización automática, dejarás de recibir lecturas continuas y no se guardará el historial correctamente. ¿Estás seguro?",
+                [
+                    { text: "Cancelar", style: "cancel" },
+                    { text: "Desactivar", style: "destructive", onPress: () => updatePreferencia('actualizacion_automatica', false) }
+                ]
+            );
+        } else {
+            updatePreferencia('actualizacion_automatica', true);
+        }
+    };
+
+    if (loading || !preferencias) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color="#FFD700" />
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -49,10 +70,10 @@ export default function ConfiguracionScreen() {
                             <Text style={styles.settingDesc}>Recibe alertas del la notificacion</Text>
                         </View>
                         <View style={styles.toggleContainer}>
-                            <Text style={styles.toggleLabel}>{notificaciones ? 'ON' : 'OFF'}</Text>
+                            <Text style={styles.toggleLabel}>{preferencias.notif_activas ? 'ON' : 'OFF'}</Text>
                             <Switch
-                                value={notificaciones}
-                                onValueChange={setNotificaciones}
+                                value={preferencias.notif_activas}
+                                onValueChange={(val) => updatePreferencia('notif_activas', val)}
                                 trackColor={{ false: '#333', true: '#FFD700' }}
                                 thumbColor="#FFF"
                                 ios_backgroundColor="#333"
@@ -68,10 +89,10 @@ export default function ConfiguracionScreen() {
                             <Text style={styles.settingDesc}>Recibe alerta por un alto consumo</Text>
                         </View>
                         <View style={styles.toggleContainer}>
-                            <Text style={styles.toggleLabel}>{alertaConsumo ? 'ON' : 'OFF'}</Text>
+                            <Text style={styles.toggleLabel}>{preferencias.notif_alto_consumo ? 'ON' : 'OFF'}</Text>
                             <Switch
-                                value={alertaConsumo}
-                                onValueChange={setAlertaConsumo}
+                                value={preferencias.notif_alto_consumo}
+                                onValueChange={(val) => updatePreferencia('notif_alto_consumo', val)}
                                 trackColor={{ false: '#333', true: '#FFD700' }}
                                 thumbColor="#FFF"
                                 ios_backgroundColor="#333"
@@ -93,29 +114,12 @@ export default function ConfiguracionScreen() {
                             <Text style={styles.settingDesc}>Refrescar cada 5 minutos</Text>
                         </View>
                         <View style={styles.toggleContainer}>
-                            <Text style={styles.toggleLabelOff}>{autoUpdate ? 'ON' : 'OFF'}</Text>
+                            <Text style={preferencias.actualizacion_automatica ? styles.toggleLabel : styles.toggleLabelOff}>
+                                {preferencias.actualizacion_automatica ? 'ON' : 'OFF'}
+                            </Text>
                             <Switch
-                                value={autoUpdate}
-                                onValueChange={setAutoUpdate}
-                                trackColor={{ false: '#333', true: '#FFD700' }}
-                                thumbColor="#FFF"
-                                ios_backgroundColor="#333"
-                            />
-                        </View>
-                    </View>
-
-                    <View style={styles.divider} />
-
-                    <View style={styles.settingRow}>
-                        <View style={styles.settingInfo}>
-                            <Text style={styles.settingName}>Modo ahorro de energia</Text>
-                            <Text style={styles.settingDesc}>Reduce el consumo de energia</Text>
-                        </View>
-                        <View style={styles.toggleContainer}>
-                            <Text style={styles.toggleLabelOff}>{modoAhorro ? 'ON' : 'OFF'}</Text>
-                            <Switch
-                                value={modoAhorro}
-                                onValueChange={setModoAhorro}
+                                value={preferencias.actualizacion_automatica}
+                                onValueChange={handleAutoUpdateToggle}
                                 trackColor={{ false: '#333', true: '#FFD700' }}
                                 thumbColor="#FFF"
                                 ios_backgroundColor="#333"

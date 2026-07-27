@@ -25,6 +25,8 @@ fastify.register(require('@fastify/cors'), {
 fastify.register(require('./routes/historial'));
 fastify.register(require('./routes/auth'));
 fastify.register(require('./routes/dispositivos'));
+fastify.register(require('./routes/usuarios'));
+fastify.register(require('./routes/notificaciones'));
 
 // Rutas básicas
 fastify.get('/', async (request, reply) => {

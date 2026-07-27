@@ -47,15 +47,16 @@ module.exports = async function (fastify) {
             qr_code: device.qr_code,
             watts: d.power || 0,
             kwh_total: d.energy || 0,
+            relay_state: d.relay_state === 'ON',
             online: true,
           };
         } catch {
-          return { id: device.id, qr_code: device.qr_code, watts: 0, kwh_total: 0, online: false };
+          return { id: device.id, qr_code: device.qr_code, watts: 0, kwh_total: 0, relay_state: false, online: false };
         }
       })
     );
 
-    const deviceData = results.map(r => r.status === 'fulfilled' ? r.value : { watts: 0, kwh_total: 0, online: false });
+    const deviceData = results.map(r => r.status === 'fulfilled' ? r.value : { watts: 0, kwh_total: 0, relay_state: false, online: false });
     const totalWatts = deviceData.reduce((sum, d) => sum + d.watts, 0);
     const totalKwh = deviceData.reduce((sum, d) => sum + d.kwh_total, 0);
 
