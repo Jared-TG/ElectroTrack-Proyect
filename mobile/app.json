@@ -61,7 +61,9 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Permitir a ElectroTrack acceder a tu ubicación (Requerido para buscar Bluetooth en Android)."
         }
-      ]
+      ],
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true

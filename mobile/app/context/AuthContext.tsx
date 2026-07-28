@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 interface User {
     id: number;
@@ -25,7 +26,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(userData);
     };
 
-    const logout = () => {
+    const logout = async () => {
+        try {
+            // Limpia la sesión de Google para que vuelva a pedir cuenta la próxima vez
+            const isSignedIn = GoogleSignin.hasPreviousSignIn();
+            if (isSignedIn) {
+                await GoogleSignin.signOut();
+            }
+        } catch (error) {
+            console.error('Error al cerrar sesión de Google:', error);
+        }
         setUser(null);
     };
 

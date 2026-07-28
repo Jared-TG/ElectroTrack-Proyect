@@ -39,6 +39,8 @@ services:
       - DB_PASS=123456
       - DB_NAME=electrotrack_db
       - DB_PORT=3306
+      - EMAIL_USER=electrotrack3@gmail.com
+      - EMAIL_PASS=hvwd tsyj dpot lhva
     depends_on:
       db:
         condition: service_healthy

@@ -214,6 +214,7 @@ export default function HomeScreen() {
                                                 nombre: device.nombre,
                                                 icono: device.icono || 'default',
                                                 watts: String((device.watts && device.watts > 0) ? device.watts : 40),
+                                                relay_state: String(isOn),
                                             },
                                         })}
                                     >

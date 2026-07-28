@@ -50,8 +50,8 @@ export default function RegisterScreen() {
       showAlert({
         type: 'success',
         title: 'Cuenta creada',
-        message: 'Usuario registrado correctamente',
-        onDismiss: () => router.back(),
+        message: 'Revisa tu correo para verificar tu cuenta',
+        onDismiss: () => router.push({ pathname: '/(tabs)/Login/VerifyEmail', params: { email: email } }),
       });
     } catch (error) {
       showAlert({ type: 'error', title: 'Sin conexión', message: 'No se pudo conectar al servidor' });
