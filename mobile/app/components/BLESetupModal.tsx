@@ -21,6 +21,7 @@ export default function BLESetupModal({ visible, onClose, onSuccess }: BLESetupM
     const { isScanning, connectedDevice, error, status, scanAndConnect, sendWiFiCredentials, disconnect } = useBLESetup();
     const [ssid, setSsid] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [sending, setSending] = useState(false);
 
     useEffect(() => {
@@ -83,15 +84,26 @@ export default function BLESetupModal({ visible, onClose, onSuccess }: BLESetupM
                                 value={ssid}
                                 onChangeText={setSsid}
                             />
-                            
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Contraseña del Wi-Fi"
-                                placeholderTextColor="#666"
-                                secureTextEntry
-                                value={password}
-                                onChangeText={setPassword}
-                            />
+                            <View style={styles.passwordContainer}>
+                                <TextInput
+                                    style={styles.passwordInput}
+                                    placeholder="Contraseña del Wi-Fi"
+                                    placeholderTextColor="#666"
+                                    secureTextEntry={!showPassword}
+                                    value={password}
+                                    onChangeText={setPassword}
+                                />
+                                <TouchableOpacity 
+                                    style={styles.eyeIcon} 
+                                    onPress={() => setShowPassword(!showPassword)}
+                                >
+                                    <Ionicons 
+                                        name={showPassword ? 'eye-off-outline' : 'eye-outline'} 
+                                        size={24} 
+                                        color="#FFD700" 
+                                    />
+                                </TouchableOpacity>
+                            </View>
 
                             <TouchableOpacity
                                 style={[styles.sendButton, (!ssid || !password) && styles.sendButtonDisabled]}
@@ -190,6 +202,26 @@ const styles = StyleSheet.create({
         color: '#FFF',
         marginBottom: 16,
         fontFamily: 'Inter_400Regular',
+    },
+    passwordContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#333',
+        borderRadius: 8,
+        backgroundColor: '#0D0D0D',
+        marginBottom: 16,
+    },
+    passwordInput: {
+        flex: 1,
+        padding: 12,
+        color: '#FFF',
+        fontFamily: 'Inter_400Regular',
+    },
+    eyeIcon: {
+        paddingHorizontal: 15,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     sendButton: {
         backgroundColor: '#FFD700',

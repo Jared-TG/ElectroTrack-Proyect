@@ -34,4 +34,19 @@ module.exports = async function (fastify) {
             return reply.status(500).send({ error: 'Error al actualizar preferencias' });
         }
     });
+    // PUT /usuarios/:id/fcm-token
+    fastify.put('/usuarios/:id/fcm-token', async (request, reply) => {
+        const { id } = request.params;
+        const { fcm_token } = request.body;
+        try {
+            await fastify.mysql.query(
+                'UPDATE usuarios SET fcm_token = ? WHERE id = ?',
+                [fcm_token, id]
+            );
+            return reply.status(200).send({ message: 'Token actualizado' });
+        } catch (error) {
+            fastify.log.error(error);
+            return reply.status(500).send({ error: 'Error al guardar token' });
+        }
+    });
 };

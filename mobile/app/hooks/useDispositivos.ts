@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
     getDispositivos,
-    createDispositivo,
+    vincularDispositivo,
     Dispositivo,
 } from '../services/dispositivoService';
 import { useAuth } from '../context/AuthContext';
@@ -31,7 +31,8 @@ export function useDispositivos() {
     }, [fetchDispositivos]);
 
     const addDispositivo = async (data: Omit<Dispositivo, 'id'>) => {
-        const newDevice = await createDispositivo({ ...data, usuario_id: user?.id });
+        if (!user?.id) throw new Error('Usuario no logueado');
+        const newDevice = await vincularDispositivo(data.qr_code, user.id, { ...data, usuario_id: user.id });
         setDispositivos(prev => [newDevice, ...prev]);
         return newDevice;
     };

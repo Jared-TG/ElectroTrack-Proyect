@@ -3,5 +3,8 @@ CREATE TABLE IF NOT EXISTS usuarios (
     email VARCHAR(100) NOT NULL UNIQUE,
     nombre_usuario VARCHAR(100) NOT NULL UNIQUE,
     contrasena VARCHAR(255) NOT NULL,
+    is_verified BOOLEAN DEFAULT FALSE,
+    verification_code VARCHAR(6),
+    google_id VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

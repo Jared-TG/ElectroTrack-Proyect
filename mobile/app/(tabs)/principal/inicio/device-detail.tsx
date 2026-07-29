@@ -56,12 +56,13 @@ interface RealtimeData {
 export default function DeviceDetailScreen() {
     const router = useRouter();
     const { showAlert } = useAlert();
-    const { qr_code, nombre: initNombre, icono: initIcono, watts: initialWatts, id } = useLocalSearchParams<{
+    const { qr_code, nombre: initNombre, icono: initIcono, watts: initialWatts, id, relay_state } = useLocalSearchParams<{
         qr_code: string;
         nombre: string;
         icono: string;
         watts: string;
         id: string;
+        relay_state?: string;
     }>();
 
     const [displayNombre, setDisplayNombre] = useState(initNombre || 'Dispositivo');
@@ -77,7 +78,7 @@ export default function DeviceDetailScreen() {
     const [pendingState, setPendingState] = useState(false);
     const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
-    const [isOn, setIsOn] = useState(true);
+    const [isOn, setIsOn] = useState(relay_state !== 'false');
     const [chartData, setChartData] = useState<DataPoint[]>([]);
     const [currentData, setCurrentData] = useState<RealtimeData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -124,6 +125,9 @@ export default function DeviceDetailScreen() {
                 if (!isMounted) return;
 
                 setCurrentData(data);
+                if (data.relay_state) {
+                    setIsOn(data.relay_state === 'ON');
+                }
                 setLoading(false);
                 setError(null);
 
