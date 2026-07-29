@@ -16,6 +16,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider } from '@/app/context/AuthContext';
 import { AlertProvider } from '@/app/context/AlertContext';
 import { initDatabase } from '@/app/services/database';
+import { usePushNotifications } from '@/app/hooks/usePushNotifications';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -62,11 +63,17 @@ export default function RootLayout() {
   return <RootLayoutNav />;
 }
 
+function PushNotificationListener() {
+  usePushNotifications();
+  return null;
+}
+
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
 
   return (
     <AuthProvider>
+      <PushNotificationListener />
       <AlertProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack>

@@ -19,6 +19,7 @@
     "@fastify/cors": "^9.0.1",
     "dotenv": "^16.4.1",
     "fastify": "^4.26.0",
+    "firebase-admin": "^14.2.0",
     "mysql2": "^3.9.1",
     "node-cron": "^4.6.0",
     "nodemailer": "^9.0.3"

@@ -1,4 +1,5 @@
 const cron = require('node-cron');
+const { sendPushNotification } = require('./firebase');
 
 const TARIFA = {
   basico: 0.75,
@@ -44,6 +45,12 @@ async function crearNotificacion(fastify, usuarioId, titulo, mensaje) {
       "INSERT INTO notificaciones (usuario_id, titulo, mensaje) VALUES (?, ?, ?)",
       [usuarioId, titulo, mensaje]
     );
+    
+    // Enviar notificación Push (Firebase)
+    const [users] = await fastify.mysql.query("SELECT fcm_token FROM usuarios WHERE id = ?", [usuarioId]);
+    if (users.length > 0 && users[0].fcm_token) {
+      await sendPushNotification(users[0].fcm_token, titulo, mensaje, { type: 'alert' });
+    }
   }
 }
 
