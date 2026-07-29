@@ -61,3 +61,11 @@ docker-compose.override.yml
 # Misc
 *.gz
 *.zip
+
+
+# Firebase
+firebase-adminsdk-*.json
+google-serviceAccountKey.json
+serviceAccountKey.json
+google-services.json
+node_modules/@firebase/rules-unit-testing.d.ts

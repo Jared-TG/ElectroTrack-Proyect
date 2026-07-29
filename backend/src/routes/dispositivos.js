@@ -158,8 +158,29 @@ module.exports = async function (fastify) {
 
     // Actualizar usuario y datos si ya existe
     await fastify.mysql.query(
-      'UPDATE dispositivos SET usuario_id = ?, mac_address = COALESCE(?, mac_address), ip_local = COALESCE(?, ip_local) WHERE qr_code = ?',
-      [usuario_id, mac_address || null, ip_local || null, qr_code]
+      `UPDATE dispositivos 
+       SET usuario_id = ?, 
+           mac_address = COALESCE(?, mac_address), 
+           ip_local = COALESCE(?, ip_local),
+           nombre = COALESCE(?, nombre),
+           icono = COALESCE(?, icono),
+           tipo = COALESCE(?, tipo),
+           modelo = COALESCE(?, modelo),
+           serial = COALESCE(?, serial),
+           watts = COALESCE(?, watts)
+       WHERE qr_code = ?`,
+      [
+        usuario_id, 
+        mac_address || null, 
+        ip_local || null, 
+        nombre || null, 
+        icono || null, 
+        tipo || null, 
+        modelo || null, 
+        serial || null, 
+        watts || null, 
+        qr_code
+      ]
     );
     const [updated] = await fastify.mysql.query(
       'SELECT * FROM dispositivos WHERE qr_code = ?',
