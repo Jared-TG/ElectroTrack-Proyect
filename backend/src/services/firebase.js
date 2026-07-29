@@ -1,10 +1,11 @@
-const admin = require('firebase-admin');
-const path = require('path');
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getMessaging } = require('firebase-admin/messaging');
 
+let app;
 try {
     const serviceAccount = require('../../serviceAccountKey.json');
-    admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
+    app = initializeApp({
+        credential: cert(serviceAccount)
     });
     console.log('[Firebase] Admin SDK initialized successfully');
 } catch (error) {
@@ -12,7 +13,7 @@ try {
 }
 
 const sendPushNotification = async (fcmToken, title, body, data = {}) => {
-    if (!fcmToken) return false;
+    if (!fcmToken || !app) return false;
     
     const message = {
         notification: { title, body },
@@ -21,7 +22,7 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
     };
 
     try {
-        const response = await admin.messaging().send(message);
+        const response = await getMessaging().send(message);
         console.log('[Firebase] Successfully sent message:', response);
         return true;
     } catch (error) {
@@ -31,6 +32,5 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
 };
 
 module.exports = {
-    admin,
     sendPushNotification
 };

@@ -35,9 +35,9 @@ function calcularCostoCFE(consumoTotalKwh) {
 const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
 async function crearNotificacion(fastify, usuarioId, titulo, mensaje) {
-  // Evitar spam: no enviar la misma alerta (mismo título) si se envió hace menos de 1 hora
+  // Evitar spam: no enviar la misma alerta (mismo título) si se envió hace menos de 1 minuto (para pruebas)
   const [recent] = await fastify.mysql.query(
-    "SELECT id FROM notificaciones WHERE usuario_id = ? AND titulo = ? AND fecha >= NOW() - INTERVAL 1 HOUR",
+    "SELECT id FROM notificaciones WHERE usuario_id = ? AND titulo = ? AND fecha >= NOW() - INTERVAL 1 MINUTE",
     [usuarioId, titulo]
   );
   if (recent.length === 0) {
