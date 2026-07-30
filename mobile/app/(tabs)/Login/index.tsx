@@ -103,8 +103,7 @@ export default function LoginScreen() {
     };
 
     const handleForgotPassword = () => {
-        // Navegar a recuperar contraseña
-        console.log('Forgot password');
+        router.push('/(tabs)/Login/ForgotPassword' as any);
     };
 
     const handleRegister = () => {
