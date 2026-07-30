@@ -36,4 +36,60 @@ module.exports = async function (fastify) {
             return reply.status(500).send({ error: 'Error al marcar notificaciones' });
         }
     });
+
+    // PUT /notificaciones/:id/marcar-leida
+    fastify.put('/notificaciones/:id/marcar-leida', async (request, reply) => {
+        const { id } = request.params;
+        const { usuario_id } = request.body;
+
+        if (!usuario_id) return reply.status(400).send({ error: 'usuario_id es requerido' });
+
+        try {
+            await fastify.mysql.query(
+                'UPDATE notificaciones SET leida = 1 WHERE id = ? AND usuario_id = ?',
+                [id, usuario_id]
+            );
+            return reply.status(200).send({ message: 'Notificación marcada como leída' });
+        } catch (error) {
+            fastify.log.error(error);
+            return reply.status(500).send({ error: 'Error al marcar la notificación' });
+        }
+    });
+
+    // DELETE /notificaciones/:id
+    fastify.delete('/notificaciones/:id', async (request, reply) => {
+        const { id } = request.params;
+        const { usuario_id } = request.query;
+
+        if (!usuario_id) return reply.status(400).send({ error: 'usuario_id es requerido' });
+
+        try {
+            await fastify.mysql.query(
+                'DELETE FROM notificaciones WHERE id = ? AND usuario_id = ?',
+                [id, usuario_id]
+            );
+            return reply.status(200).send({ message: 'Notificación eliminada' });
+        } catch (error) {
+            fastify.log.error(error);
+            return reply.status(500).send({ error: 'Error al eliminar la notificación' });
+        }
+    });
+
+    // DELETE /notificaciones
+    fastify.delete('/notificaciones', async (request, reply) => {
+        const { usuario_id } = request.query;
+
+        if (!usuario_id) return reply.status(400).send({ error: 'usuario_id es requerido' });
+
+        try {
+            await fastify.mysql.query(
+                'DELETE FROM notificaciones WHERE usuario_id = ?',
+                [usuario_id]
+            );
+            return reply.status(200).send({ message: 'Todas las notificaciones eliminadas' });
+        } catch (error) {
+            fastify.log.error(error);
+            return reply.status(500).send({ error: 'Error al eliminar notificaciones' });
+        }
+    });
 };
