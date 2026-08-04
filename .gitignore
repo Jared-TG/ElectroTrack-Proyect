@@ -62,10 +62,18 @@ docker-compose.override.yml
 *.gz
 *.zip
 
+# Certificados y scripts locales
+llave-Electrotrack.pem
+llave-publica-Electrotrack.pem
+gen_key.ps1
+
+# Archivos de producción y temporales
+backend_prod.tar
+docker-compose.prod.yml
+query.sql
 
 # Firebase
 firebase-adminsdk-*.json
 google-serviceAccountKey.json
 serviceAccountKey.json
-google-services.json
 node_modules/@firebase/rules-unit-testing.d.ts
