@@ -84,6 +84,7 @@ export default function DeviceDetailScreen() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const pointCounter = useRef(0);
+    const isToggling = useRef(false);
 
     const handleUpdateDevice = async () => {
         if (!editNombre.trim()) {
@@ -112,8 +113,6 @@ export default function DeviceDetailScreen() {
 
     // Polling para datos en tiempo real
     useEffect(() => {
-        if (!isOn) return;
-
         let isMounted = true;
 
         const fetchData = async () => {
@@ -125,8 +124,8 @@ export default function DeviceDetailScreen() {
                 if (!isMounted) return;
 
                 setCurrentData(data);
-                if (data.relay_state) {
-                    setIsOn(data.relay_state === 'ON');
+                if (data.relay_state !== undefined && !isToggling.current) {
+                    setIsOn(data.relay_state === true || data.relay_state === 'ON');
                 }
                 setLoading(false);
                 setError(null);
@@ -159,7 +158,7 @@ export default function DeviceDetailScreen() {
             isMounted = false;
             clearInterval(interval);
         };
-    }, [isOn, qr_code]);
+    }, [qr_code]);
 
     const handleToggle = async () => {
         const newState = !isOn;
@@ -170,14 +169,7 @@ export default function DeviceDetailScreen() {
     const executeToggle = async () => {
         const newState = pendingState;
         setIsOn(newState);
-
-        // Si apagamos, limpiar chart
-        if (!newState) {
-            setChartData([]);
-            pointCounter.current = 0;
-            setCurrentData(null);
-            setLoading(true);
-        }
+        isToggling.current = true;
 
         // Controlar el relé físico via backend
         try {
@@ -200,6 +192,12 @@ export default function DeviceDetailScreen() {
                 title: 'Error',
                 message: 'No se pudo cambiar el estado del relé. Verifica que el dispositivo esté en línea.',
             });
+        } finally {
+            // Permitir que el polling actualice el estado de nuevo después de un breve delay
+            // para asegurar que la DB ya tiene el nuevo estado.
+            setTimeout(() => {
+                isToggling.current = false;
+            }, 2000);
         }
     };
 
