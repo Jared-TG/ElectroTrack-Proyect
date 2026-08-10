@@ -7,6 +7,8 @@ import {
     TextInput,
     TouchableOpacity,
     ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useBLESetup } from '../hooks/useBLESetup';
@@ -47,6 +49,10 @@ export default function BLESetupModal({ visible, onClose, onSuccess }: BLESetupM
     return (
         <Modal visible={visible} animationType="slide" transparent>
             <View style={styles.overlay}>
+                <KeyboardAvoidingView
+                    behavior="padding"
+                    style={{ width: '100%' }}
+                >
                 <View style={styles.modalContent}>
                     <View style={styles.header}>
                         <Text style={styles.title}>Configuración Wi-Fi</Text>
@@ -122,6 +128,7 @@ export default function BLESetupModal({ visible, onClose, onSuccess }: BLESetupM
                         </View>
                     )}
                 </View>
+                </KeyboardAvoidingView>
             </View>
         </Modal>
     );

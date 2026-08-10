@@ -7,6 +7,8 @@ import {
     TextInput,
     TouchableOpacity,
     ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '@/app/config/api.config';
@@ -56,6 +58,10 @@ export default function OnlineWiFiModal({ visible, onClose, onSuccess, deviceId 
     return (
         <Modal visible={visible} animationType="slide" transparent>
             <View style={styles.overlay}>
+                <KeyboardAvoidingView
+                    behavior="padding"
+                    style={{ width: '100%' }}
+                >
                 <View style={styles.modalContent}>
                     <View style={styles.header}>
                         <Text style={styles.title}>Actualizar Wi-Fi</Text>
@@ -119,6 +125,7 @@ export default function OnlineWiFiModal({ visible, onClose, onSuccess, deviceId 
                         </TouchableOpacity>
                     </View>
                 </View>
+                </KeyboardAvoidingView>
             </View>
         </Modal>
     );
