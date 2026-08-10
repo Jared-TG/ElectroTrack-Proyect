@@ -31,7 +31,7 @@ export function useNotificaciones() {
         }
     }, [user?.id]);
 
-    const marcarLeidas = async () => {
+    const marcarLeidas = useCallback(async () => {
         if (!user?.id || unreadCount === 0) return;
         try {
             // Optimistic update
@@ -47,7 +47,51 @@ export function useNotificaciones() {
             console.error('Error marking as read', e);
             fetchNotificaciones(); // revert
         }
-    };
+    }, [user, API_URL, fetchNotificaciones]);
+
+    const marcarUnaLeida = useCallback(async (id: number) => {
+        if (!user) return;
+        try {
+            setNotificaciones(prev => prev.map(n => n.id === id ? { ...n, leida: 1 } : n));
+
+            await fetch(`${API_URL}/notificaciones/${id}/marcar-leida`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ usuario_id: user.id })
+            });
+        } catch (e) {
+            console.error('Error marking one as read', e);
+            fetchNotificaciones(); // revert
+        }
+    }, [user, API_URL, fetchNotificaciones]);
+
+    const borrarNotificacion = useCallback(async (id: number) => {
+        if (!user) return;
+        try {
+            setNotificaciones(prev => prev.filter(n => n.id !== id));
+
+            await fetch(`${API_URL}/notificaciones/${id}?usuario_id=${user.id}`, {
+                method: 'DELETE'
+            });
+        } catch (e) {
+            console.error('Error deleting notification', e);
+            fetchNotificaciones(); // revert
+        }
+    }, [user, API_URL, fetchNotificaciones]);
+
+    const borrarTodas = useCallback(async () => {
+        if (!user) return;
+        try {
+            setNotificaciones([]);
+
+            await fetch(`${API_URL}/notificaciones?usuario_id=${user.id}`, {
+                method: 'DELETE'
+            });
+        } catch (e) {
+            console.error('Error deleting all notifications', e);
+            fetchNotificaciones(); // revert
+        }
+    }, [user, API_URL, fetchNotificaciones]);
 
     useFocusEffect(
         useCallback(() => {
@@ -55,5 +99,13 @@ export function useNotificaciones() {
         }, [fetchNotificaciones])
     );
 
-    return { notificaciones, unreadCount, fetchNotificaciones, marcarLeidas };
+    return { 
+        notificaciones, 
+        unreadCount, 
+        fetchNotificaciones, 
+        marcarLeidas,
+        marcarUnaLeida,
+        borrarNotificacion,
+        borrarTodas 
+    };
 }

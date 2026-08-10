@@ -22,7 +22,7 @@ module.exports = async function (fastify) {
   // ============================================================
   fastify.get('/dispositivos/dashboard-summary', async (request, reply) => {
     const { usuario_id } = request.query;
-    let query = 'SELECT id, nombre, qr_code, ip_local, icono, watts as db_watts FROM dispositivos';
+    let query = 'SELECT id, nombre, qr_code, ip_local, icono, watts as db_watts, kwh_total, relay_state, online FROM dispositivos';
     const params = [];
     if (usuario_id) {
       query += ' WHERE usuario_id = ?';
@@ -30,33 +30,17 @@ module.exports = async function (fastify) {
     }
     const [devices] = await fastify.mysql.query(query, params);
 
-    // Consultar cada ESP32 en paralelo (con timeout de 3 seg para no bloquear)
-    const results = await Promise.allSettled(
-      devices.map(async (device) => {
-        if (!device.ip_local) {
-          return { id: device.id, qr_code: device.qr_code, watts: 0, kwh_total: 0, online: false };
-        }
-        try {
-          const res = await fetch(`http://${device.ip_local}/api/status`, {
-            signal: AbortSignal.timeout(3000),
-          });
-          if (!res.ok) throw new Error('ESP error');
-          const d = await res.json();
-          return {
-            id: device.id,
-            qr_code: device.qr_code,
-            watts: d.power || 0,
-            kwh_total: d.energy || 0,
-            relay_state: d.relay_state === 'ON',
-            online: true,
-          };
-        } catch {
-          return { id: device.id, qr_code: device.qr_code, watts: 0, kwh_total: 0, relay_state: false, online: false };
-        }
-      })
-    );
+    // Consultar directamente de la BD en lugar de hacer FETCH a los ESP32
+    // ya que ahora usan el modelo Push
+    const deviceData = devices.map(d => ({
+      id: d.id,
+      qr_code: d.qr_code,
+      watts: d.db_watts || 0,
+      kwh_total: d.kwh_total || 0,
+      relay_state: d.relay_state === 'ON',
+      online: d.online === 1
+    }));
 
-    const deviceData = results.map(r => r.status === 'fulfilled' ? r.value : { watts: 0, kwh_total: 0, relay_state: false, online: false });
     const totalWatts = deviceData.reduce((sum, d) => sum + d.watts, 0);
     const totalKwh = deviceData.reduce((sum, d) => sum + d.kwh_total, 0);
 
@@ -230,6 +214,70 @@ module.exports = async function (fastify) {
   });
 
   // ============================================================
+  // POST /dispositivos/sync — Endpoint PUSH para el ESP32
+  // Recibe datos en tiempo real cada 5 segundos
+  // ============================================================
+  fastify.post('/dispositivos/sync', async (request, reply) => {
+    const { 
+      mac_address, ip_local, voltage, current, power, 
+      energy, frequency, power_factor, relay_state, anomaly_detected 
+    } = request.body;
+
+    if (!mac_address) {
+      return reply.status(400).send({ error: 'mac_address es requerido' });
+    }
+
+    // 1. Buscar el dispositivo y su estado_deseado_relay
+    const [rows] = await fastify.mysql.query(
+      'SELECT id, relay_state, estado_deseado_relay FROM dispositivos WHERE qr_code = ? OR mac_address = ?',
+      [mac_address, mac_address]
+    );
+
+    let relay_command = null;
+
+    if (rows.length > 0) {
+      const dbDevice = rows[0];
+      
+      // Si el ESP32 nos reporta un estado distinto al que el usuario solicitó,
+      // le devolvemos el comando para que lo cambie.
+      if (dbDevice.estado_deseado_relay !== null && dbDevice.estado_deseado_relay !== relay_state) {
+        relay_command = dbDevice.estado_deseado_relay;
+      }
+
+      // 2. Actualizar los datos del dispositivo en la base de datos
+      await fastify.mysql.query(
+        `UPDATE dispositivos
+         SET ip_local = ?, 
+             watts = ?, 
+             kwh_total = ?, 
+             relay_state = ?, 
+             estado_deseado_relay = CASE WHEN estado_deseado_relay = ? THEN NULL ELSE estado_deseado_relay END,
+             online = 1,
+             estado = 'en_linea',
+             ultimo_reporte = NOW(),
+             voltaje = ?,
+             corriente = ?,
+             factor_potencia = ?,
+             frecuencia = ?,
+             anomalia = ?
+         WHERE id = ?`,
+        [
+          ip_local || null, power || 0, energy || 0, relay_state === 'ON' ? 'ON' : 'OFF', 
+          relay_state === 'ON' ? 'ON' : 'OFF',
+          voltage || 0, current || 0, power_factor || 0, frequency || 0, anomaly_detected ? 1 : 0,
+          dbDevice.id
+        ]
+      );
+    }
+
+    // Retornamos 200 OK, incluyendo el comando si existe
+    return reply.status(200).send({
+      status: 'ok',
+      relay_command: relay_command // Será "ON", "OFF" o null
+    });
+  });
+
+  // ============================================================
   // GET /dispositivos/:id/realtime — datos REALES del ESP32
   // Hace proxy a http://{ip_local}/api/status
   // ============================================================
@@ -238,7 +286,7 @@ module.exports = async function (fastify) {
 
     // Buscar por id numérico o por qr_code (MAC)
     const [rows] = await fastify.mysql.query(
-      'SELECT ip_local, nombre FROM dispositivos WHERE id = ? OR qr_code = ?',
+      'SELECT * FROM dispositivos WHERE id = ? OR qr_code = ?',
       [isNaN(id) ? -1 : Number(id), id]
     );
 
@@ -246,42 +294,21 @@ module.exports = async function (fastify) {
       return reply.status(404).send({ error: 'Dispositivo no encontrado' });
     }
 
-    const ip = rows[0].ip_local;
-    if (!ip) {
-      return reply.status(503).send({
-        error: 'Dispositivo sin IP registrada. Asegúrate de que el ESP32 esté encendido y conectado al WiFi.',
-      });
-    }
+    const dev = rows[0];
 
-    try {
-      const esp32Res = await fetch(`http://${ip}/api/status`, {
-        signal: AbortSignal.timeout(5000), // timeout 5 seg
-      });
-
-      if (!esp32Res.ok) {
-        return reply.status(502).send({ error: `ESP32 respondió con error: ${esp32Res.status}` });
-      }
-
-      const d = await esp32Res.json();
-
-      // Mapear campos ESP32 → formato esperado por la app
-      return {
-        timestamp:   new Date().toISOString(),
-        voltaje:     d.voltage,
-        watts:       d.power,
-        corriente:   d.current,
-        kwh_total:   d.energy,
-        frecuencia:  d.frequency,
-        factor_pot:  d.power_factor,
-        relay_state: d.relay_state,
-        anomaly:     d.anomaly_detected,
-      };
-    } catch (err) {
-      fastify.log.error(`[Realtime] Error al conectar con ESP32 en ${ip}: ${err.message}`);
-      return reply.status(504).send({
-        error: 'No se pudo conectar al dispositivo. Verifica que el ESP32 esté encendido y en la misma red.',
-      });
-    }
+    // Leemos directamente desde la base de datos (modelo Push)
+    return {
+      timestamp:   new Date().toISOString(),
+      voltaje:     dev.voltaje || 0,
+      watts:       dev.watts || 0,
+      corriente:   dev.corriente || 0,
+      kwh_total:   dev.kwh_total || 0,
+      frecuencia:  dev.frecuencia || 0,
+      factor_pot:  dev.factor_potencia || 0,
+      relay_state: dev.relay_state === 'ON',
+      anomaly:     dev.anomalia === 1,
+      online:      dev.online === 1,
+    };
   });
 
 
@@ -306,25 +333,14 @@ module.exports = async function (fastify) {
       return reply.status(404).send({ error: 'Dispositivo no encontrado' });
     }
 
-    const ip = rows[0].ip_local;
-    if (!ip) {
-      return reply.status(503).send({ error: 'Dispositivo sin IP registrada' });
-    }
+    // Guardamos el estado deseado en la base de datos para que el ESP32 lo lea en su proximo Push (sync)
+    // También actualizamos relay_state para que la UI responda inmediatamente sin rebotar
+    await fastify.mysql.query(
+      'UPDATE dispositivos SET estado_deseado_relay = ?, relay_state = ? WHERE id = ? OR qr_code = ?',
+      [state, state, isNaN(id) ? -1 : Number(id), id]
+    );
 
-    try {
-      const esp32Res = await fetch(`http://${ip}/api/relay`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state }),
-        signal: AbortSignal.timeout(5000),
-      });
-
-      const result = await esp32Res.json();
-      return result;
-    } catch (err) {
-      fastify.log.error(`[Relay] Error al conectar con ESP32 en ${ip}: ${err.message}`);
-      return reply.status(504).send({ error: 'No se pudo conectar al dispositivo.' });
-    }
+    return reply.status(200).send({ status: 'pending_sync', message: 'Comando encolado para el dispositivo' });
   });
 
   // ============================================================

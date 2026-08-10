@@ -37,13 +37,16 @@ export default function HomeScreen() {
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // Notifications
-    const { notificaciones, unreadCount, marcarLeidas } = useNotificaciones();
+    const { notificaciones, unreadCount, fetchNotificaciones, marcarLeidas, marcarUnaLeida, borrarNotificacion, borrarTodas } = useNotificaciones();
     const [notifModalVisible, setNotifModalVisible] = useState(false);
 
     const openNotificaciones = () => {
         setNotifModalVisible(true);
-        marcarLeidas();
+        // We do NOT mark all as read automatically anymore
     };
+
+    const unreadNotifs = notificaciones.filter(n => n.leida === 0);
+    const readNotifs = notificaciones.filter(n => n.leida === 1);
 
     // Inicializar toggles cuando cambian los dispositivos (solo la primera vez)
     useEffect(() => {
@@ -265,39 +268,120 @@ export default function HomeScreen() {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Notificaciones</Text>
-                            <TouchableOpacity onPress={() => setNotifModalVisible(false)}>
-                                <Ionicons name="close" size={24} color="#FFF" />
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <View style={styles.modalHeaderIcon}>
+                                    <Ionicons name="notifications-outline" size={22} color="#FFD700" />
+                                </View>
+                                <View>
+                                    <Text style={styles.modalTitle}>Notificaciones</Text>
+                                    {unreadCount > 0 && <Text style={styles.modalSubtitle}>{unreadCount} sin leer</Text>}
+                                </View>
+                            </View>
+                            <TouchableOpacity onPress={() => setNotifModalVisible(false)} style={styles.modalCloseBtn}>
+                                <Ionicons name="close" size={20} color="#888" />
                             </TouchableOpacity>
                         </View>
-                        {notificaciones.length === 0 ? (
-                            <Text style={styles.emptyNotifText}>No tienes notificaciones.</Text>
-                        ) : (
-                            <FlatList
-                                data={notificaciones}
-                                keyExtractor={(item) => item.id.toString()}
-                                renderItem={({ item }) => (
-                                    <View style={[styles.notifItem, item.leida === 0 && styles.notifItemUnread]}>
-                                        <View style={styles.notifIconContainer}>
-                                            <Ionicons 
-                                                name={item.titulo.includes('Alto') ? 'warning-outline' : 'flash-outline'} 
-                                                size={24} 
-                                                color="#FFD700" 
-                                            />
-                                        </View>
-                                        <View style={styles.notifTextContainer}>
-                                            <Text style={styles.notifTitle}>{item.titulo}</Text>
-                                            <Text style={styles.notifMessage}>{item.mensaje}</Text>
-                                            <Text style={styles.notifDate}>
-                                                {new Date(item.fecha).toLocaleString('es-MX', {
-                                                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-                                                })}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                )}
-                            />
+
+                        {notificaciones.length > 0 && (
+                            <View style={styles.quickActions}>
+                                <TouchableOpacity 
+                                    style={[styles.actionBtnOutline, unreadCount === 0 && { borderColor: '#333' }]} 
+                                    onPress={marcarLeidas} 
+                                    disabled={unreadCount === 0}
+                                >
+                                    <Ionicons name="checkmark-done" size={18} color={unreadCount > 0 ? "#FFD700" : "#555"} />
+                                    <Text style={[styles.actionBtnText, { color: unreadCount > 0 ? "#FFD700" : "#555" }]} numberOfLines={1}>
+                                        Marcar leídas
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.actionBtnDanger} onPress={borrarTodas}>
+                                    <Ionicons name="trash-outline" size={18} color="#FF4444" />
+                                    <Text style={[styles.actionBtnText, { color: "#FF4444" }]} numberOfLines={1}>Borrar todas</Text>
+                                </TouchableOpacity>
+                            </View>
                         )}
+
+                        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                            {notificaciones.length === 0 ? (
+                                <Text style={styles.emptyNotifText}>No tienes notificaciones.</Text>
+                            ) : (
+                                <>
+                                    {unreadNotifs.length > 0 && (
+                                        <View style={styles.notifSection}>
+                                            <Text style={styles.notifSectionTitle}>SIN LEER</Text>
+                                            {unreadNotifs.map(item => (
+                                                <View key={item.id} style={styles.notifCard}>
+                                                    <View style={styles.unreadDot} />
+                                                    <View style={styles.notifCardTop}>
+                                                        <View style={styles.notifIconBox}>
+                                                            <Ionicons 
+                                                                name={item.titulo.includes('Alto') || item.titulo.includes('Elevado') ? 'notifications-outline' : (item.titulo.includes('WiFi') ? 'wifi-outline' : 'flash-outline')} 
+                                                                size={22} 
+                                                                color="#FFD700" 
+                                                            />
+                                                        </View>
+                                                        <View style={styles.notifTextContainer}>
+                                                            <Text style={styles.notifTitle}>{item.titulo}</Text>
+                                                            <Text style={styles.notifMessage}>{item.mensaje}</Text>
+                                                        </View>
+                                                    </View>
+                                                    <View style={styles.notifCardBottom}>
+                                                        <Text style={styles.notifDate}>
+                                                            {new Date(item.fecha).toLocaleString('es-MX', {
+                                                                day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                                                            })}
+                                                        </Text>
+                                                        <View style={styles.notifActions}>
+                                                            <TouchableOpacity style={styles.smallActionBtn} onPress={() => marcarUnaLeida(item.id)}>
+                                                                <Text style={styles.smallActionText}>Marcar leída</Text>
+                                                            </TouchableOpacity>
+                                                            <TouchableOpacity style={styles.smallActionBtnDanger} onPress={() => borrarNotificacion(item.id)}>
+                                                                <Text style={styles.smallActionTextDanger}>Borrar</Text>
+                                                            </TouchableOpacity>
+                                                        </View>
+                                                    </View>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    )}
+
+                                    {readNotifs.length > 0 && (
+                                        <View style={styles.notifSection}>
+                                            <Text style={styles.notifSectionTitle}>ANTERIORES</Text>
+                                            {readNotifs.map(item => (
+                                                <View key={item.id} style={styles.notifCard}>
+                                                    <View style={styles.notifCardTop}>
+                                                        <View style={styles.notifIconBox}>
+                                                            <Ionicons 
+                                                                name={item.titulo.includes('Alto') || item.titulo.includes('Elevado') ? 'notifications-outline' : (item.titulo.includes('WiFi') ? 'wifi-outline' : 'flash-outline')} 
+                                                                size={22} 
+                                                                color="#888" 
+                                                            />
+                                                        </View>
+                                                        <View style={styles.notifTextContainer}>
+                                                            <Text style={[styles.notifTitle, { color: '#AAA' }]}>{item.titulo}</Text>
+                                                            <Text style={styles.notifMessage}>{item.mensaje}</Text>
+                                                        </View>
+                                                    </View>
+                                                    <View style={styles.notifCardBottom}>
+                                                        <Text style={styles.notifDate}>
+                                                            {new Date(item.fecha).toLocaleString('es-MX', {
+                                                                day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                                                            })}
+                                                        </Text>
+                                                        <View style={styles.notifActions}>
+                                                            <TouchableOpacity style={styles.smallActionBtnDanger} onPress={() => borrarNotificacion(item.id)}>
+                                                                <Text style={styles.smallActionTextDanger}>Borrar</Text>
+                                                            </TouchableOpacity>
+                                                        </View>
+                                                    </View>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    )}
+                                </>
+                            )}
+                        </ScrollView>
                     </View>
                 </View>
             </Modal>
@@ -396,19 +480,17 @@ const styles = StyleSheet.create({
         color: '#888',
         fontFamily: 'Inter_400Regular',
     },
-    // Modal Styles
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.6)',
+        backgroundColor: 'rgba(0,0,0,0.7)',
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: '#111',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
+        backgroundColor: '#0A0A0A',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
         padding: 20,
-        maxHeight: '80%',
-        minHeight: '50%',
+        height: '90%',
     },
     modalHeader: {
         flexDirection: 'row',
@@ -416,53 +498,172 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 20,
     },
+    modalHeaderIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#221D00',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+        borderWidth: 1,
+        borderColor: '#332900',
+    },
     modalTitle: {
         fontSize: 20,
         fontFamily: 'Inter_700Bold',
         color: '#FFF',
     },
-    emptyNotifText: {
-        color: '#888',
-        textAlign: 'center',
-        marginTop: 40,
-        fontFamily: 'Inter_400Regular',
+    modalSubtitle: {
+        fontSize: 13,
+        color: '#FFD700',
+        fontFamily: 'Inter_500Medium',
+        marginTop: 2,
     },
-    notifItem: {
-        flexDirection: 'row',
+    modalCloseBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         backgroundColor: '#1A1A1A',
-        padding: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    quickActions: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 24,
+        gap: 12,
+    },
+    actionBtnOutline: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 4,
         borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#4A3D00',
+        backgroundColor: 'rgba(255, 215, 0, 0.05)',
+        gap: 6,
+    },
+    actionBtnDanger: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 4,
+        borderRadius: 12,
+        backgroundColor: '#2A1111',
+        gap: 6,
+    },
+    actionBtnText: {
+        fontSize: 12,
+        fontFamily: 'Inter_600SemiBold',
+    },
+    notifSection: {
+        marginBottom: 24,
+    },
+    notifSectionTitle: {
+        fontSize: 12,
+        color: '#666',
+        fontFamily: 'Inter_700Bold',
+        letterSpacing: 1,
+        marginBottom: 12,
+        marginLeft: 4,
+    },
+    notifCard: {
+        backgroundColor: '#141414',
+        borderRadius: 16,
+        padding: 16,
         marginBottom: 12,
         borderWidth: 1,
-        borderColor: '#333',
+        borderColor: '#222',
+        position: 'relative',
     },
-    notifItemUnread: {
-        borderColor: '#FFD700',
-        backgroundColor: '#2A2200',
+    unreadDot: {
+        position: 'absolute',
+        top: 16,
+        right: 16,
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#FFD700',
     },
-    notifIconContainer: {
-        marginRight: 16,
+    notifCardTop: {
+        flexDirection: 'row',
+        marginBottom: 16,
+    },
+    notifIconBox: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: '#1F1F1F',
         justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
     },
     notifTextContainer: {
         flex: 1,
+        paddingRight: 10,
     },
     notifTitle: {
         color: '#FFF',
         fontSize: 16,
         fontFamily: 'Inter_600SemiBold',
-        marginBottom: 4,
+        marginBottom: 6,
     },
     notifMessage: {
-        color: '#BBB',
-        fontSize: 14,
+        color: '#888',
+        fontSize: 13,
         fontFamily: 'Inter_400Regular',
-        lineHeight: 20,
+        lineHeight: 18,
+    },
+    notifCardBottom: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 4,
     },
     notifDate: {
-        color: '#666',
+        color: '#FFD700',
         fontSize: 12,
-        marginTop: 8,
-        fontFamily: 'Inter_400Regular',
+        fontFamily: 'Inter_500Medium',
+    },
+    notifActions: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    smallActionBtn: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+        backgroundColor: 'rgba(255, 215, 0, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 215, 0, 0.2)',
+    },
+    smallActionText: {
+        color: '#FFD700',
+        fontSize: 12,
+        fontFamily: 'Inter_600SemiBold',
+    },
+    smallActionBtnDanger: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+        backgroundColor: 'rgba(255, 68, 68, 0.1)',
+    },
+    smallActionTextDanger: {
+        color: '#FF4444',
+        fontSize: 12,
+        fontFamily: 'Inter_600SemiBold',
+    },
+    emptyNotifText: {
+        color: '#666',
+        textAlign: 'center',
+        marginTop: 60,
+        fontFamily: 'Inter_500Medium',
+        fontSize: 16,
     },
 });

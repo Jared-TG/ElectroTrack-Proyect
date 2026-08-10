@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "601517274308",
+    "project_id": "electrotrack-503806",
+    "storage_bucket": "electrotrack-503806.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:601517274308:android:4d4b959850fe44ee87c591",
+        "android_client_info": {
+          "package_name": "com.anonymous.Electrotrack"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "601517274308-87ldmiblmekfc8ncst8ed3hgr9mjc4lp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.anonymous.Electrotrack",
+            "certificate_hash": "c54e449e7fc0e3116529cfe7ffbaedd4ad3223aa"
+          }
+        },
+        {
+          "client_id": "601517274308-h55g1282pp1fo4rraetekrjevk93u0qt.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC9Lr-WoHg7YRvdxVjHUisYfU-d49XjmKo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "601517274308-h55g1282pp1fo4rraetekrjevk93u0qt.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

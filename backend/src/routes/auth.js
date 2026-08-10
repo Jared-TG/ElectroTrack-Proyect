@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const mailService = require('../services/mailService');
+const emailService = require('../services/emailService');
 
 async function authRoutes(fastify, options) {
     // POST /auth/register
@@ -183,6 +184,96 @@ async function authRoutes(fastify, options) {
         } catch (error) {
             fastify.log.error(error);
             return reply.status(500).send({ error: 'Error al iniciar sesión con Google' });
+        }
+    });
+
+    // POST /auth/forgot-password
+    fastify.post('/auth/forgot-password', async (request, reply) => {
+        const { email } = request.body;
+        if (!email) {
+            return reply.status(400).send({ error: 'El email es requerido' });
+        }
+
+        try {
+            const [rows] = await fastify.mysql.query(
+                'SELECT id FROM usuarios WHERE email = ?',
+                [email]
+            );
+
+            if (rows.length === 0) {
+                // Return 200 anyway for security (don't reveal if email exists)
+                return reply.status(200).send({ message: 'Si el correo existe, se ha enviado un código' });
+            }
+
+            const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+            await fastify.mysql.query(
+                'UPDATE usuarios SET reset_otp = ?, reset_otp_expires = DATE_ADD(NOW(), INTERVAL 15 MINUTE) WHERE email = ?',
+                [otpCode, email]
+            );
+
+            // Send email
+            emailService.sendPasswordResetEmail(email, otpCode);
+
+            return reply.status(200).send({ message: 'Si el correo existe, se ha enviado un código' });
+        } catch (error) {
+            fastify.log.error(error);
+            return reply.status(500).send({ error: 'Error procesando la solicitud' });
+        }
+    });
+
+    // POST /auth/verify-reset-otp
+    fastify.post('/auth/verify-reset-otp', async (request, reply) => {
+        const { email, code } = request.body;
+        if (!email || !code) {
+            return reply.status(400).send({ error: 'Email y código son requeridos' });
+        }
+
+        try {
+            const [rows] = await fastify.mysql.query(
+                'SELECT id FROM usuarios WHERE email = ? AND reset_otp = ? AND reset_otp_expires > NOW()',
+                [email, code]
+            );
+
+            if (rows.length === 0) {
+                return reply.status(400).send({ error: 'Código incorrecto o expirado' });
+            }
+
+            return reply.status(200).send({ message: 'Código válido' });
+        } catch (error) {
+            fastify.log.error(error);
+            return reply.status(500).send({ error: 'Error validando código' });
+        }
+    });
+
+    // POST /auth/reset-password
+    fastify.post('/auth/reset-password', async (request, reply) => {
+        const { email, code, newPassword } = request.body;
+        if (!email || !code || !newPassword) {
+            return reply.status(400).send({ error: 'Email, código y nueva contraseña son requeridos' });
+        }
+
+        try {
+            // Validate code again just in case
+            const [rows] = await fastify.mysql.query(
+                'SELECT id FROM usuarios WHERE email = ? AND reset_otp = ? AND reset_otp_expires > NOW()',
+                [email, code]
+            );
+
+            if (rows.length === 0) {
+                return reply.status(400).send({ error: 'Código incorrecto o expirado' });
+            }
+
+            // Update password and clear OTP
+            await fastify.mysql.query(
+                'UPDATE usuarios SET contrasena = ?, reset_otp = NULL, reset_otp_expires = NULL WHERE email = ?',
+                [newPassword, email]
+            );
+
+            return reply.status(200).send({ message: 'Contraseña actualizada exitosamente' });
+        } catch (error) {
+            fastify.log.error(error);
+            return reply.status(500).send({ error: 'Error al cambiar contraseña' });
         }
     });
 }

@@ -67,36 +67,20 @@ class CronService {
     // ----------------------------------------------------
     cron.schedule('*/1 * * * *', async () => {
       try {
+        // En el modelo Push, si la última actualización fue hace más de 1 minuto, lo marcamos como offline
+        await this.fastify.mysql.query(
+          `UPDATE dispositivos SET online = 0, estado = 'desconectado' 
+           WHERE ultimo_reporte < NOW() - INTERVAL 1 MINUTE AND online = 1`
+        );
+
         const [dispositivos] = await this.fastify.mysql.query(
           `SELECT d.ip_local, d.nombre, d.usuario_id, u.notif_activas
            FROM dispositivos d 
            JOIN usuarios u ON d.usuario_id = u.id 
-           WHERE d.ip_local IS NOT NULL AND u.notif_activas = 1`
+           WHERE d.ultimo_reporte < NOW() - INTERVAL 1 MINUTE AND d.online = 0` // Nota: la primera vez no notificará spam si guardamos estado de notificacion enviada, pero omitamos para simplificar
         );
 
-        if (!dispositivos || dispositivos.length === 0) return;
-
-        for (const disp of dispositivos) {
-          if (!disp.usuario_id) continue;
-          
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2000); // Ping rápido de 2 seg
-            
-            const res = await fetch(`http://${disp.ip_local}/api/status`, { signal: controller.signal });
-            clearTimeout(timeoutId);
-
-            if (!res.ok) throw new Error('Bad Status');
-          } catch (e) {
-            // Falla el ping: Dispositivo fuera de línea
-            await crearNotificacion(
-                this.fastify, 
-                disp.usuario_id, 
-                'Dispositivo Desconectado', 
-                `Se perdió la conexión con tu dispositivo "${disp.nombre}". Verifica que tenga energía y acceso al WiFi.`
-            );
-          }
-        }
+        // Opcional: enviar notificaciones de desconexión (requiere lógica extra para no repetir cada minuto)
       } catch (err) {
         console.error('[HealthCheck Error]', err);
       }
@@ -107,13 +91,13 @@ class CronService {
     // ----------------------------------------------------
     cron.schedule('*/5 * * * *', async () => {
       try {
-        console.log('[Cron] Ejecutando recolección de energía...');
+        console.log('[Cron] Ejecutando recolección de energía (Modelo Push)...');
         const [dispositivos] = await this.fastify.mysql.query(
-          `SELECT d.ip_local, d.nombre, d.usuario_id, 
+          `SELECT d.ip_local, d.nombre, d.usuario_id, d.watts, d.anomalia, d.online,
                   u.notif_activas, u.notif_alto_consumo, u.limite_alto_consumo_watts, u.actualizacion_automatica 
            FROM dispositivos d 
            JOIN usuarios u ON d.usuario_id = u.id 
-           WHERE d.ip_local IS NOT NULL`
+           WHERE d.online = 1`
         );
 
         if (!dispositivos || dispositivos.length === 0) {
@@ -125,23 +109,11 @@ class CronService {
 
         for (const disp of dispositivos) {
           if (!disp.usuario_id) continue;
-          
-          // Si el usuario desactivó la actualización automática, saltamos este dispositivo
           if (!disp.actualizacion_automatica) continue;
 
           try {
-            // Request data with 5 seconds timeout
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-            
-            const res = await fetch(`http://${disp.ip_local}/api/status`, { signal: controller.signal });
-            clearTimeout(timeoutId);
-
-            if (!res.ok) continue;
-
-            const data = await res.json();
-            const watts = data.power || 0;
-            const anomalyDetected = data.anomaly_detected || false;
+            const watts = disp.watts || 0;
+            const anomalyDetected = disp.anomalia === 1;
 
             // --- Lógica de Notificaciones ---
             if (disp.notif_activas) {
@@ -195,7 +167,7 @@ class CronService {
               );
             }
           } catch (e) {
-            // Ignorar dispositivos que no responden, el Health Check de 1 minuto se encarga de esto
+            console.error('[Cron Error Dispositivo]', e);
           }
         }
       } catch (err) {
