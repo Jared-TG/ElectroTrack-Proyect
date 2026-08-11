@@ -308,6 +308,7 @@ module.exports = async function (fastify) {
       relay_state: dev.relay_state === 'ON',
       anomaly:     dev.anomalia === 1,
       online:      dev.online === 1,
+      ip_local:    dev.ip_local,
     };
   });
 

@@ -18,9 +18,10 @@ interface OnlineWiFiModalProps {
     onClose: () => void;
     onSuccess: () => void;
     deviceId: string;
+    deviceIp?: string;
 }
 
-export default function OnlineWiFiModal({ visible, onClose, onSuccess, deviceId }: OnlineWiFiModalProps) {
+export default function OnlineWiFiModal({ visible, onClose, onSuccess, deviceId, deviceIp }: OnlineWiFiModalProps) {
     const [ssid, setSsid] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -29,11 +30,16 @@ export default function OnlineWiFiModal({ visible, onClose, onSuccess, deviceId 
 
     const handleSend = async () => {
         if (!ssid || !password) return;
+        if (!deviceIp) {
+            setError("No se pudo obtener la IP local del dispositivo");
+            return;
+        }
+
         setSending(true);
         setError(null);
         
         try {
-            const res = await fetch(`${API_URL}/dispositivos/${deviceId}/wifi`, {
+            const res = await fetch(`http://${deviceIp}/api/wifi`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ssid: ssid.trim(), pass: password.trim() }),

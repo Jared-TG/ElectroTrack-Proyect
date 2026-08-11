@@ -22,11 +22,29 @@ import OnlineWiFiModal from '@/app/components/OnlineWiFiModal';
 import ConfirmRelayModal from '@/app/components/ConfirmRelayModal';
 import ConfirmDeleteModal from '@/app/components/ConfirmDeleteModal';
 
+// Catálogo de perfiles de consumo eléctrico por tipo de aparato
+const DEVICE_PROFILES: Record<string, { device_type: string; standby_power_max: number; active_power_min: number; active_power_max: number } | null> = {
+    tv:        { device_type: 'tv',        standby_power_max: 1.0,  active_power_min: 60,  active_power_max: 200 },
+    laptop:    { device_type: 'laptop',    standby_power_max: 0.5,  active_power_min: 20,  active_power_max: 100 },
+    fan:       { device_type: 'fan',       standby_power_max: 0.5,  active_power_min: 25,  active_power_max: 75 },
+    phone:     { device_type: 'phone',     standby_power_max: 0.0,  active_power_min: 5,   active_power_max: 25 },
+    ac:        { device_type: 'ac',        standby_power_max: 2.0,  active_power_min: 500, active_power_max: 2000 },
+    microwave: { device_type: 'microwave', standby_power_max: 0.5,  active_power_min: 800, active_power_max: 1500 },
+    fridge:    { device_type: 'fridge',    standby_power_max: 2.0,  active_power_min: 80,  active_power_max: 350 },
+    bulb:      { device_type: 'bulb',      standby_power_max: 0.0,  active_power_min: 3,   active_power_max: 20 },
+    wifi:      { device_type: 'wifi',      standby_power_max: 0.0,  active_power_min: 5,   active_power_max: 20 },
+    settings:  null, // "Otro" — sin perfil, no evalúa anomalías
+};
+
 const DEVICE_ICONS = [
     { key: 'tv', label: 'TV', component: (color: string) => <Ionicons name="tv-outline" size={26} color={color} /> },
     { key: 'laptop', label: 'Laptop', component: (color: string) => <Ionicons name="laptop-outline" size={26} color={color} /> },
-    { key: 'camera', label: 'Cámara', component: (color: string) => <Ionicons name="camera-outline" size={26} color={color} /> },
-    { key: 'headset', label: 'Headset', component: (color: string) => <Ionicons name="headset-outline" size={26} color={color} /> },
+    { key: 'fan', label: 'Ventilador', component: (color: string) => <Ionicons name="snow-outline" size={26} color={color} /> },
+    { key: 'phone', label: 'Celular', component: (color: string) => <Ionicons name="phone-portrait-outline" size={26} color={color} /> },
+    { key: 'ac', label: 'A/C', component: (color: string) => <Ionicons name="thermometer-outline" size={26} color={color} /> },
+    { key: 'microwave', label: 'Microondas', component: (color: string) => <Ionicons name="fast-food-outline" size={26} color={color} /> },
+    { key: 'fridge', label: 'Refrigerador', component: (color: string) => <Ionicons name="snow-outline" size={26} color={color} /> },
+    { key: 'bulb', label: 'Foco', component: (color: string) => <Ionicons name="bulb-outline" size={26} color={color} /> },
     { key: 'wifi', label: 'Router', component: (color: string) => <Ionicons name="wifi-outline" size={26} color={color} /> },
     { key: 'settings', label: 'Otro', component: (color: string) => <Ionicons name="options-outline" size={26} color={color} /> },
 ];
@@ -51,6 +69,7 @@ interface RealtimeData {
     factor_pot:  number;   // 0-1
     relay_state: string;   // "ON" | "OFF"
     anomaly:     boolean;  // anomalía detectada
+    ip_local?:   string;   // IP local para comandos directos
 }
 
 export default function DeviceDetailScreen() {
@@ -93,13 +112,38 @@ export default function DeviceDetailScreen() {
         }
         setIsUpdating(true);
         try {
+            // 1. Guardar nombre e icono en la base de datos (AWS)
             const res = await fetch(`${API_URL}/dispositivos/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ nombre: editNombre.trim(), icono: editIcono }),
             });
-            if (!res.ok) throw new Error('Error al actualizar');
+            if (!res.ok) throw new Error('Error al actualizar en servidor');
             
+            // 2. Enviar el Perfil de Consumo DIRECTAMENTE al ESP32 (Red Local)
+            if (currentData?.ip_local && DEVICE_PROFILES[editIcono]) {
+                try {
+                    await fetch(`http://${currentData.ip_local}/api/update_profile`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(DEVICE_PROFILES[editIcono]),
+                    });
+                    console.log("Perfil inyectado exitosamente en el ESP32 (Local)");
+                } catch (e) {
+                    // Fallo silencioso: el usuario no estaba en la misma red
+                    console.log("No se pudo contactar al ESP32 localmente:", e);
+                }
+            } else if (currentData?.ip_local && editIcono === 'settings') {
+                // Si eligió "Otro", podemos enviar un perfil vacío o ignorar
+                try {
+                    await fetch(`http://${currentData.ip_local}/api/update_profile`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ device_type: 'Ninguno' }),
+                    });
+                } catch (e) {}
+            }
+
             setDisplayNombre(editNombre.trim());
             setDisplayIcono(editIcono);
             setEditModalVisible(false);
@@ -356,9 +400,10 @@ export default function DeviceDetailScreen() {
                 visible={onlineWifiModalVisible}
                 onClose={() => setOnlineWifiModalVisible(false)}
                 deviceId={id as string}
+                deviceIp={currentData?.ip_local}
                 onSuccess={() => {
                     setOnlineWifiModalVisible(false);
-                    showAlert({ type: 'success', title: 'WiFi Actualizado', message: 'Las credenciales se actualizaron correctamente.' });
+                    showAlert({ type: 'success', title: 'Éxito', message: 'Wi-Fi actualizado correctamente' });
                 }}
             />
 
